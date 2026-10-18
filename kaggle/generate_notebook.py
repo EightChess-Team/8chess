@@ -149,15 +149,23 @@ STRIDE = 2          # Sample every 2nd ply for diversity
 MIN_PLY = 8         # Skip opening book moves
 
 def sample_positions_from_pgns(paths, target_samples=TARGET_SAMPLES, stride=STRIDE, min_ply=MIN_PLY):
+    import gzip, bz2
     fens, results = [], []
     t0 = time.time()
     
+    def _open_pgn(path):
+        if path.endswith(".gz"):
+            return gzip.open(path, "rt", errors="replace")
+        elif path.endswith(".bz2"):
+            return bz2.open(path, "rt", errors="replace")
+        return open(path, "r", errors="replace")
+
     # Sort files by size so we pull from diverse games
     sorted_paths = sorted(paths, key=os.path.getsize, reverse=True)
     
     for p in sorted_paths:
         print(f"Reading {os.path.basename(p)} ({os.path.getsize(p)/(1024*1024):.1f} MB)...")
-        with open(p, "r", errors="replace") as f:
+        with _open_pgn(p) as f:
             while len(fens) < target_samples:
                 game = chess.pgn.read_game(f)
                 if game is None:
