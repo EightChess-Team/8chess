@@ -78,7 +78,7 @@ def encode_fens(
         offsets = np.zeros(n + 1, dtype=np.int64)
         for i, f in enumerate(feats):
             offsets[i + 1] = offsets[i] + len(f)
-        flat = np.empty(int(offsets[-1]), dtype=np.uint16)
+        flat = np.empty(int(offsets[-1]), dtype=np.int32)
         pos = 0
         for f in feats:
             flat[pos : pos + len(f)] = f
