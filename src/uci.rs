@@ -160,8 +160,8 @@ fn spawn_listener(shared: Arc<SharedContext>) -> std::sync::mpsc::Receiver<Strin
 }
 
 fn uci() {
-    println!("id name 8Chess {} (Reckless fork)", env!("ENGINE_VERSION"));
-    println!("id author 8Chess project; based on Reckless by Arseniy Surkov, Shahin M. Shahin, and Styx");
+    println!("id name 8Chess 1.0");
+    println!("id author 8Chess project");
     println!("option name Hash type spin default {DEFAULT_TT_SIZE} min 1 max 262144");
     println!("option name Threads type spin default 1 min 1 max {}", ThreadPool::available_threads());
     println!("option name MoveOverhead type spin default 100 min 0 max 2000");
