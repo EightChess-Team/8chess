@@ -90,7 +90,7 @@ def main() -> int:
 
     print(f"verifying {len(fens)} positions ...")
     net = nnue_format.read_network(args.network)
-    expected = engine_evals(args.engine, fens, eval_file=None)
+    expected = engine_evals(args.engine, fens, eval_file=args.network)
 
     exact = 0
     diffs = np.zeros(len(fens), dtype=np.int64)
