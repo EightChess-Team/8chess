@@ -14,7 +14,28 @@ import sys
 import time
 
 KERNEL_ID = "srinivaskasukurthy/eightchess-lc0-nnue-trainer"
-KAGGLE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def find_kaggle_dir() -> str:
+    # 1. Resolve realpath of this file (handles symlinks)
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    if os.path.exists(os.path.join(script_dir, "kernel-metadata.json")):
+        return script_dir
+    # 2. Check Reckless/kaggle relative to script
+    cand = os.path.join(script_dir, "Reckless", "kaggle")
+    if os.path.exists(os.path.join(cand, "kernel-metadata.json")):
+        return cand
+    # 3. Check cwd
+    cand = os.path.join(os.getcwd(), "Reckless", "kaggle")
+    if os.path.exists(os.path.join(cand, "kernel-metadata.json")):
+        return cand
+    cand = os.path.join(os.getcwd(), "kaggle")
+    if os.path.exists(os.path.join(cand, "kernel-metadata.json")):
+        return cand
+    return script_dir
+
+
+KAGGLE_DIR = find_kaggle_dir()
 
 def push():
     print(f"Pushing {KERNEL_ID} to Kaggle...")
