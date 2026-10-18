@@ -84,6 +84,16 @@ pub fn message_loop(mut buffer: VecDeque<String>) {
             ["compiler"] => compiler(),
             ["eval"] => eval(threads.main_thread(), &board),
             ["evalnum"] => evalnum(threads.main_thread(), &board),
+            ["dumpacc", color] => dumpacc(threads.main_thread(), &board, color),
+            ["threatprobe", piece, from, attacked, to] => {
+                let piece = piece.parse().unwrap();
+                let from = from.parse().unwrap();
+                let attacked = attacked.parse().unwrap();
+                let to = to.parse().unwrap();
+                let (base, offset, attack_index) =
+                    crate::nnue::Network::debug_threat_components(piece, from, attacked, to);
+                println!("base={base} offset={offset} attack_index={attack_index}");
+            }
             ["d"] => println!("{board}"),
             ["bench", args @ ..] => match mode {
                 Mode::Uci => tools::bench::<true>(args),
@@ -351,6 +361,23 @@ fn set_option(threads: &mut ThreadPool, settings: &mut Settings, shared: &Arc<Sh
 fn evalnum(td: &mut ThreadData, board: &Board) {
     td.nnue.full_refresh(board);
     println!("{}", td.nnue.evaluate(board));
+}
+
+fn dumpacc(td: &mut ThreadData, board: &Board, color: &str) {
+    let pov = match color {
+        "white" => Color::White,
+        "black" => Color::Black,
+        _ => {
+            eprintln!("Usage: dumpacc <white|black>");
+            return;
+        }
+    };
+
+    let (pst, threat) = td.nnue.debug_accumulators(board, pov);
+
+    let join = |values: &[i16]| values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",");
+    println!("pst {}", join(&pst));
+    println!("threat {}", join(&threat));
 }
 
 fn eval(td: &mut ThreadData, board: &Board) {

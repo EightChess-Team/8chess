@@ -3,6 +3,19 @@ use crate::{
     types::{Bitboard, Color, Piece, PieceType, Square},
 };
 
+/// Debug helper for the training tooling: exposes the raw components used to
+/// build a threat feature index (used to validate the Python replica).
+pub fn debug_threat_components(piece: usize, from: usize, attacked: usize, to: usize) -> (isize, i32, u8) {
+    unsafe {
+        let pair = PIECE_PAIR_LOOKUP[piece][attacked];
+        (
+            pair.base(Square::new(from as u8), Square::new(to as u8)),
+            PIECE_OFFSET_LOOKUP[piece][from],
+            ATTACK_INDEX_LOOKUP[piece][from][to],
+        )
+    }
+}
+
 #[derive(Copy, Clone)]
 struct PiecePair {
     // Bit layout:

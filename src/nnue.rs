@@ -302,6 +302,18 @@ impl Network {
         }
     }
 
+    pub fn debug_threat_components(piece: usize, from: usize, attacked: usize, to: usize) -> (isize, i32, u8) {
+        accumulator::threats::debug_threat_components(piece, from, attacked, to)
+    }
+
+    /// Debug helper: returns the raw (i16) accumulators for the given POV.
+    /// Used by the training tooling to validate feature extraction bit-for-bit.
+    pub fn debug_accumulators(&mut self, board: &Board, pov: Color) -> (Vec<i16>, Vec<i16>) {
+        self.full_refresh(board);
+        let index = pov as usize;
+        (self.pst_stack[self.index].values[index].to_vec(), self.threat_stack[self.index].values[index].to_vec())
+    }
+
     pub fn eval_with_bucket(&mut self, board: &Board, bucket: usize) -> i32 {
         self.full_refresh(board);
         self.evaluate(board); // just to update internal state
