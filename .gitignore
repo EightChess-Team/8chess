@@ -6,6 +6,10 @@ reckless*
 eight_chess*
 bindings.rs
 /data
+/results
+bin/
+*.npz
+*.pt
 __pycache__/
 *.pyc
 *.ipynb_checkpoints
