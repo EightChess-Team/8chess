@@ -3,4 +3,9 @@ target
 *.exe
 *.pdb
 reckless*
+eight_chess*
 bindings.rs
+/data
+__pycache__/
+*.pyc
+*.ipynb_checkpoints

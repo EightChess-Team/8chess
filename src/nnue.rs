@@ -2,7 +2,9 @@ mod accumulator;
 
 pub use accumulator::threats::initialize;
 
+use std::alloc::Layout;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicPtr, Ordering};
 
 use crate::{
     board::{Board, BoardObserver},
@@ -366,10 +368,50 @@ pub struct Parameters {
     l3_biases: Aligned<[f32; OUTPUT_BUCKETS]>,
 }
 
+const _: () = assert!(std::mem::size_of::<Parameters>() == 63_266_880);
+const _: () = assert!(std::mem::align_of::<Parameters>() == 64);
+
+static ACTIVE_PARAMETERS: AtomicPtr<Parameters> = AtomicPtr::new(std::ptr::null_mut());
+
 impl Parameters {
     fn embedded() -> &'static Self {
         static EMBEDDED: Parameters = unsafe { std::mem::transmute(*include_bytes!(env!("MODEL"))) };
         &EMBEDDED
+    }
+
+    /// Returns the currently active parameters: either the compile-time embedded
+    /// network or a network loaded at runtime via the `EvalFile` UCI option.
+    pub fn current() -> &'static Self {
+        let ptr = ACTIVE_PARAMETERS.load(Ordering::Acquire);
+
+        if ptr.is_null() { Self::embedded() } else { unsafe { &*ptr } }
+    }
+
+    /// Loads a network file into the active-parameters slot.
+    ///
+    /// The file must be a raw little-endian memory image of `Parameters`
+    /// (see `docs/nnue_format.md`). The allocation is intentionally leaked:
+    /// network loads are rare and pointers handed out previously must stay valid.
+    pub fn load_from_file(path: &std::path::Path) -> Result<(), String> {
+        let bytes = std::fs::read(path).map_err(|e| format!("failed to read '{}': {e}", path.display()))?;
+
+        let expected = std::mem::size_of::<Self>();
+
+        if bytes.len() != expected {
+            return Err(format!("invalid network size: expected {expected} bytes, found {}", bytes.len()));
+        }
+
+        let layout = Layout::new::<Self>();
+        let ptr = unsafe { std::alloc::alloc(layout) } as *mut Self;
+
+        if ptr.is_null() {
+            return Err("failed to allocate memory for network".to_owned());
+        }
+
+        unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr as *mut u8, expected) };
+        ACTIVE_PARAMETERS.store(ptr, Ordering::Release);
+
+        Ok(())
     }
 
     fn allocate_owned() -> Arc<Self> {
@@ -378,7 +420,7 @@ impl Parameters {
         std::mem::forget(boxed);
 
         unsafe {
-            std::ptr::copy_nonoverlapping(Self::embedded() as *const Self, ptr, 1);
+            std::ptr::copy_nonoverlapping(Self::current() as *const Self, ptr, 1);
             Arc::from(Box::from_raw(ptr))
         }
     }
@@ -391,13 +433,14 @@ pub struct ParametersHandle {
 
 #[derive(Clone)]
 enum ParametersStorage {
-    Embedded(&'static Parameters),
+    /// Tracks the process-wide active parameters (embedded or loaded at runtime).
+    Active,
     Owned(Arc<Parameters>),
 }
 
 impl ParametersHandle {
-    fn embedded() -> Self {
-        Self { inner: ParametersStorage::Embedded(Parameters::embedded()) }
+    const fn active() -> Self {
+        Self { inner: ParametersStorage::Active }
     }
 
     const fn owned(parameters: Arc<Parameters>) -> Self {
@@ -410,7 +453,9 @@ impl std::ops::Deref for ParametersHandle {
 
     fn deref(&self) -> &Self::Target {
         match &self.inner {
-            ParametersStorage::Embedded(parameters) => parameters,
+            // The active variant tracks runtime network swaps via the global
+            // active-parameters slot.
+            ParametersStorage::Active => Parameters::current(),
             ParametersStorage::Owned(parameters) => parameters.as_ref(),
         }
     }
@@ -422,7 +467,7 @@ impl NumaReplicable for ParametersHandle {
     }
 
     fn allocate_shared() -> Option<Arc<Self>> {
-        Arc::new(Self::embedded()).into()
+        Arc::new(Self::active()).into()
     }
 }
 

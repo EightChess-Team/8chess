@@ -83,6 +83,7 @@ pub fn message_loop(mut buffer: VecDeque<String>) {
             // Non-UCI commands
             ["compiler"] => compiler(),
             ["eval"] => eval(threads.main_thread(), &board),
+            ["evalnum"] => evalnum(threads.main_thread(), &board),
             ["d"] => println!("{board}"),
             ["bench", args @ ..] => match mode {
                 Mode::Uci => tools::bench::<true>(args),
@@ -149,8 +150,8 @@ fn spawn_listener(shared: Arc<SharedContext>) -> std::sync::mpsc::Receiver<Strin
 }
 
 fn uci() {
-    println!("id name Reckless {}", env!("ENGINE_VERSION"));
-    println!("id author Arseniy Surkov, Shahin M. Shahin, and Styx");
+    println!("id name 8Chess {} (Reckless fork)", env!("ENGINE_VERSION"));
+    println!("id author 8Chess project; based on Reckless by Arseniy Surkov, Shahin M. Shahin, and Styx");
     println!("option name Hash type spin default {DEFAULT_TT_SIZE} min 1 max 262144");
     println!("option name Threads type spin default 1 min 1 max {}", ThreadPool::available_threads());
     println!("option name MoveOverhead type spin default 100 min 0 max 2000");
@@ -158,6 +159,7 @@ fn uci() {
     println!("option name Clear Hash type button");
     println!("option name UCI_Chess960 type check default false");
     println!("option name MultiPV type spin default 1 min 1 max {MAX_MOVES}");
+    println!("option name EvalFile type string default <internal>");
 
     #[cfg(feature = "syzygy")]
     println!("option name SyzygyPath type string default");
@@ -319,6 +321,24 @@ fn set_option(threads: &mut ThreadPool, settings: &mut Settings, shared: &Arc<Sh
             settings.multi_pv = v.parse().unwrap_or_default();
             println!("info string set MultiPV to {v}");
         }
+        ["name", "EvalFile", "value", v] => {
+            // Reserve thread 0's data while we swap the network so that the
+            // rebuild below happens with the new parameters in place.
+            let thread_count = threads.len();
+
+            match crate::nnue::Parameters::load_from_file(std::path::Path::new(v)) {
+                Ok(()) => {
+                    // Force a full parameter re-replication (NUMA copies included)
+                    // by bouncing the thread count, then rebuild thread state and
+                    // drop search state derived from the previous network.
+                    threads.set_count(1);
+                    threads.set_count(thread_count);
+                    reset(threads, shared);
+                    println!("info string loaded eval file '{v}'");
+                }
+                Err(e) => eprintln!("Failed to load eval file: {e}"),
+            }
+        }
         #[cfg(feature = "spsa")]
         ["name", name, "value", v] => {
             crate::parameters::set_parameter(name, v);
@@ -326,6 +346,11 @@ fn set_option(threads: &mut ThreadPool, settings: &mut Settings, shared: &Arc<Sh
         }
         _ => eprintln!("Unknown option: '{}'", tokens.join(" ").trim_end()),
     }
+}
+
+fn evalnum(td: &mut ThreadData, board: &Board) {
+    td.nnue.full_refresh(board);
+    println!("{}", td.nnue.evaluate(board));
 }
 
 fn eval(td: &mut ThreadData, board: &Board) {

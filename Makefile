@@ -1,4 +1,4 @@
-EXE    := reckless
+EXE    := eight_chess
 TARGET := $(shell rustc --print host-tuple)
 
 RUSTFLAGS ?= -C target-cpu=native
