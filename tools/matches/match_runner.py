@@ -41,11 +41,11 @@ def elo_stats(wins: int, losses: int, draws: int) -> tuple[float, float, float]:
     elo = -400.0 * math.log10(1.0 / clamped_score - 1.0)
 
     # 95% confidence interval
-    score_lo = max(score - 1.96 * se, 0.001)
-    score_hi = min(score + 1.96 * se, 0.999)
+    score_lo = max(min(score - 1.96 * se, 0.999), 0.001)
+    score_hi = max(min(score + 1.96 * se, 0.999), 0.001)
     elo_lo = -400.0 * math.log10(1.0 / score_lo - 1.0)
     elo_hi = -400.0 * math.log10(1.0 / score_hi - 1.0)
-    margin = (elo_hi - elo_lo) / 2.0
+    margin = abs(elo_hi - elo_lo) / 2.0
 
     return score, elo, margin
 
