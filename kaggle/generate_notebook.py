@@ -69,6 +69,8 @@ if torch.cuda.is_available():
         model_code = f.read()
     with open(os.path.join(repo_dir, "export.py")) as f:
         export_code = f.read()
+    with open(os.path.join(repo_dir, "verify_engine.py")) as f:
+        verify_engine_code = f.read()
 
     code(f"""# --- Architecture Definitions & Feature Extractors ---
 import os
@@ -96,6 +98,9 @@ with open("eightchess_nnue/model.py", "w") as f:
 
 with open("eightchess_nnue/export.py", "w") as f:
     f.write({repr(export_code)})
+
+with open("eightchess_nnue/verify_engine.py", "w") as f:
+    f.write({repr(verify_engine_code)})
 
 print(" आठChess toolkit written to disk successfully!")
 """)
@@ -137,13 +142,23 @@ if not lc0_files:
 
     md("""## 3. Position Sampling & High-Performance Feature Encoding""")
 
-    code("""def sample_positions_from_pgns(paths, max_samples=500000, stride=2, min_ply=10):
+    code("""# Target dataset scale for high-quality NNUE training
+# 2,000,000 positions = ~20 min encoding, ~15 min GPU training on Kaggle T4/P100
+TARGET_SAMPLES = 2_000_000
+STRIDE = 2          # Sample every 2nd ply for diversity
+MIN_PLY = 8         # Skip opening book moves
+
+def sample_positions_from_pgns(paths, target_samples=TARGET_SAMPLES, stride=STRIDE, min_ply=MIN_PLY):
     fens, results = [], []
     t0 = time.time()
-    for p in paths:
-        print(f"Parsing {p}...")
+    
+    # Sort files by size so we pull from diverse games
+    sorted_paths = sorted(paths, key=os.path.getsize, reverse=True)
+    
+    for p in sorted_paths:
+        print(f"Reading {os.path.basename(p)} ({os.path.getsize(p)/(1024*1024):.1f} MB)...")
         with open(p, "r", errors="replace") as f:
-            while len(fens) < max_samples:
+            while len(fens) < target_samples:
                 game = chess.pgn.read_game(f)
                 if game is None:
                     break
@@ -159,26 +174,31 @@ if not lc0_files:
                         continue
                     fens.append(b.fen())
                     results.append(res)
-                    if len(fens) >= max_samples:
+                    if len(fens) >= target_samples:
                         break
-        if len(fens) >= max_samples:
+                
+                if len(fens) % 50000 == 0 and len(fens) > 0:
+                    print(f"  Collected {len(fens):,} / {target_samples:,} positions...")
+                    
+        if len(fens) >= target_samples:
             break
-    print(f"Sampled {len(fens)} positions in {time.time()-t0:.1f}s")
+            
+    print(f"Total sampled: {len(fens):,} positions in {time.time()-t0:.1f}s")
     return fens, results
 
-fens, results = sample_positions_from_pgns(lc0_files, max_samples=250000, stride=3)
+fens, results = sample_positions_from_pgns(lc0_files, target_samples=TARGET_SAMPLES)
 
 # Train / Validation Split (95% train, 5% val)
 split = int(len(fens) * 0.95)
 train_fens, val_fens = fens[:split], fens[split:]
 train_results, val_results = results[:split], results[split:]
 
-print(f"Encoding {len(train_fens)} training positions with 4 vCPUs...")
-train_data = encode_fens(train_fens, train_results, workers=4, chunk=2048)
+print(f"Encoding {len(train_fens):,} training positions with 4 vCPUs...")
+train_data = encode_fens(train_fens, train_results, workers=4, chunk=4096)
 save_encoded(train_data, "/kaggle/working/train_lc0.npz")
 
-print(f"Encoding {len(val_fens)} validation positions...")
-val_data = encode_fens(val_fens, val_results, workers=4, chunk=2048)
+print(f"Encoding {len(val_fens):,} validation positions...")
+val_data = encode_fens(val_fens, val_results, workers=4, chunk=4096)
 save_encoded(val_data, "/kaggle/working/val_lc0.npz")
 print("Data encoding complete!")
 """)
@@ -225,9 +245,9 @@ train_ds = EncodedDataset(load_encoded("/kaggle/working/train_lc0.npz"), device)
 val_ds = EncodedDataset(load_encoded("/kaggle/working/val_lc0.npz"), device)
 
 model = EightChessNNUE().to(device)
-optimizer = torch.optim.AdamW(model.parameters(), lr=1.5e-3, weight_decay=1e-4)
-epochs = 12
-batch_size = 8192
+optimizer = torch.optim.AdamW(model.parameters(), lr=2.0e-3, weight_decay=1e-4)
+epochs = 10
+batch_size = 16384 if torch.cuda.is_available() else 4096
 total_steps = (train_ds.size // batch_size + 1) * epochs
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps, eta_min=1e-5)
 

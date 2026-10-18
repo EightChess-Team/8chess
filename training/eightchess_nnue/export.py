@@ -25,7 +25,6 @@ from . import format as nnue_format
 from .constants import FT_QUANT, L1_QUANT
 from .model import EightChessNNUE
 from .quantized import evaluate
-from .verify_engine import engine_evals, random_fens
 
 
 def quantize_weights(state: dict[str, torch.Tensor]) -> dict[str, np.ndarray]:
@@ -70,6 +69,7 @@ def main() -> int:
     nnue_format.write_network(net, args.out)
     print(f"wrote {args.out} ({nnue_format.NETWORK_SIZE} bytes)")
 
+    from .verify_engine import engine_evals, random_fens
     fens = random_fens(args.verify_count, seed=1234)
     engine_scores = None
     if args.engine:

@@ -7,6 +7,10 @@ import random
 import subprocess
 import sys
 import tempfile
+
+# Ensure training/ is in python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import chess
 import chess.pgn
 
