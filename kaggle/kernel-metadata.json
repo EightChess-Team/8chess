@@ -1,7 +1,7 @@
 {
   "id": "srinivaskasukurthy/eightchess-lc0-nnue-trainer",
   "title": "EightChess LC0 NNUE Trainer",
-  "code_file": "eightchess_mismatch_trainer.ipynb",
+  "code_file": "eightchess_finetuner.ipynb",
   "language": "python",
   "kernel_type": "notebook",
   "is_private": "true",

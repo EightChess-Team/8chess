@@ -93,6 +93,10 @@ assert os.path.getsize(MASTER_PATH) == 63266880, "Master network size mismatch"
     with open(os.path.join(repo_dir, "verify_engine.py")) as f:
         verify_engine_code = f.read()
 
+    # Read the 5,000+ Stockfish Depth-25 gold evaluations
+    with open("data/sf_depth25_gold.csv") as f:
+        sf_gold_content = f.read()
+
     code(f"""# --- Write 8Chess NNUE modules ---
 os.makedirs("eightchess_nnue", exist_ok=True)
 with open("eightchess_nnue/__init__.py", "w") as f:
@@ -122,7 +126,11 @@ with open("eightchess_nnue/export.py", "w") as f:
 with open("eightchess_nnue/verify_engine.py", "w") as f:
     f.write({repr(verify_engine_code)})
 
-print("8Chess NNUE modules written successfully!")
+# Write the Stockfish Depth-25 gold dataset directly to disk
+with open("/kaggle/working/sf_depth25_gold.csv", "w") as f:
+    f.write({repr(sf_gold_content)})
+
+print("8Chess NNUE modules & Stockfish Depth-25 gold written successfully!")
 """)
 
     md("""## 3. Ingest Stockfish Depth-25 Gold + Lc0 Anchor Curriculum""")
