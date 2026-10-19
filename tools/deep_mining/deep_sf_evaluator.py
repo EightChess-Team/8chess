@@ -129,12 +129,12 @@ def main() -> int:
         "--stockfish",
         default="/home/hemesh/Videos/8chess/bin/stockfish/stockfish-linux-x86-64-universal",
     )
-    parser.add_argument("--depth", type=int, default=22, help="search depth")
-    parser.add_argument("--time-limit", type=float, default=15.0, help="max seconds per position")
-    parser.add_argument("--concurrency", type=int, default=5, help="parallel engine instances")
-    parser.add_argument("--threads-per-eng", type=int, default=2, help="threads per instance")
-    parser.add_argument("--hash", type=int, default=128, help="hash size per instance in MB")
-    parser.add_argument("--out-csv", default="data/sf_deep_gold.csv")
+    parser.add_argument("--depth", type=int, default=50, help="search depth (default: 50)")
+    parser.add_argument("--time-limit", type=float, default=600.0, help="max seconds per position (default: 600s)")
+    parser.add_argument("--concurrency", type=int, default=1, help="parallel engine instances (default: 1 for depth 50)")
+    parser.add_argument("--threads-per-eng", type=int, default=10, help="threads per instance (default: 10)")
+    parser.add_argument("--hash", type=int, default=2048, help="hash size per instance in MB (default: 2048 MB)")
+    parser.add_argument("--out-csv", default="data/sf_depth50_gold.csv")
     parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()
 
