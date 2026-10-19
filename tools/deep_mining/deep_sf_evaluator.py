@@ -1,13 +1,13 @@
-"""High-depth Stockfish 19 evaluator for tactical truth mining.
+"""Parallel High-Depth Stockfish 19 Evaluator for Tactical Truth Mining.
 
-Runs Stockfish 19 locally with all available CPU threads at deep search
-(depth 30..50) to evaluate candidate positions and extract ground-truth
-tactical evaluations and best moves.
+Evaluates thousands of positions using concurrent Stockfish 19 instances,
+recording exact depth, centipawn score, nodes, time, and best move.
+Supports resume automatically.
 
 Usage:
     python3 tools/deep_mining/deep_sf_evaluator.py \
-        --fens data/raw_positions.csv --depth 35 --threads 10 \
-        --out-csv data/sf_depth35_gold.csv
+        --fens data/critical_loss_fens.txt --depth 22 --concurrency 5 --threads-per-eng 2 \
+        --out-csv data/sf_deep_gold.csv
 """
 
 from __future__ import annotations
@@ -15,26 +15,127 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import chess
 import chess.engine
 
 
+def eval_one_fen(
+    engine_path: str,
+    fen: str,
+    depth: int,
+    time_limit: float,
+    threads: int,
+    hash_mb: int,
+) -> tuple[str, int, int, str, int, float] | None:
+    board = chess.Board(fen)
+    sf = chess.engine.SimpleEngine.popen_uci(engine_path)
+    sf.configure({"Threads": threads, "Hash": hash_mb})
+
+    try:
+        t0 = time.time()
+        limit = chess.engine.Limit(depth=depth, time=time_limit)
+        info = sf.analyse(board, limit)
+        dt = time.time() - t0
+
+        score_obj = info.get("score")
+        if score_obj is None:
+            return None
+
+        cp = score_obj.relative.score(mate_score=10000)
+        if cp is None:
+            cp = 10000 if score_obj.relative.mate() > 0 else -10000
+
+        actual_depth = info.get("depth", depth)
+        nodes = info.get("nodes", 0)
+        pv = info.get("pv", [])
+        best_move = pv[0].uci() if pv else "none"
+
+        return fen, actual_depth, cp, best_move, nodes, dt
+
+    finally:
+        try:
+            sf.quit()
+        except Exception:
+            pass
+
+
+def worker_loop(
+    engine_path: str,
+    fens_queue: list[str],
+    depth: int,
+    time_limit: float,
+    threads: int,
+    hash_mb: int,
+    out_csv: str,
+    lock: threading.Lock,
+    progress: list[int],
+    total: int,
+    t_start: float,
+):
+    sf = chess.engine.SimpleEngine.popen_uci(engine_path)
+    sf.configure({"Threads": threads, "Hash": hash_mb})
+
+    try:
+        for fen in fens_queue:
+            board = chess.Board(fen)
+            t0 = time.time()
+            limit = chess.engine.Limit(depth=depth, time=time_limit)
+            info = sf.analyse(board, limit)
+            dt = time.time() - t0
+
+            score_obj = info.get("score")
+            if score_obj is None:
+                continue
+
+            cp = score_obj.relative.score(mate_score=10000)
+            if cp is None:
+                cp = 10000 if score_obj.relative.mate() > 0 else -10000
+
+            actual_depth = info.get("depth", depth)
+            nodes = info.get("nodes", 0)
+            pv = info.get("pv", [])
+            best_move = pv[0].uci() if pv else "none"
+
+            line = f'"{fen}",{actual_depth},{cp},{best_move},{nodes},{dt:.2f}\n'
+            with lock:
+                with open(out_csv, "a") as f:
+                    f.write(line)
+                progress[0] += 1
+                done = progress[0]
+                elapsed = time.time() - t_start
+                rate = done / max(elapsed, 1e-5)
+                eta = (total - done) / max(rate, 1e-5)
+                print(
+                    f"[{done:5d}/{total:5d}] d={actual_depth:2d} | Score: {cp:+5d} cp | "
+                    f"Move: {best_move:5s} | {rate:.1f} pos/s (ETA: {eta/60:.1f}m)",
+                    end="\r",
+                    flush=True,
+                )
+    finally:
+        try:
+            sf.quit()
+        except Exception:
+            pass
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--fens", required=True, help="input CSV or text file containing FENs")
+    parser.add_argument("--fens", required=True, help="input file containing FENs")
     parser.add_argument(
         "--stockfish",
         default="/home/hemesh/Videos/8chess/bin/stockfish/stockfish-linux-x86-64-universal",
     )
-    parser.add_argument("--depth", type=int, default=35, help="search depth (e.g. 30..50)")
-    parser.add_argument("--nodes", type=int, default=None, help="optional node limit per position")
-    parser.add_argument("--time-limit", type=float, default=30.0, help="max seconds per position")
-    parser.add_argument("--threads", type=int, default=10, help="Stockfish threads")
-    parser.add_argument("--hash", type=int, default=1024, help="Stockfish hash size in MB")
+    parser.add_argument("--depth", type=int, default=22, help="search depth")
+    parser.add_argument("--time-limit", type=float, default=15.0, help="max seconds per position")
+    parser.add_argument("--concurrency", type=int, default=5, help="parallel engine instances")
+    parser.add_argument("--threads-per-eng", type=int, default=2, help="threads per instance")
+    parser.add_argument("--hash", type=int, default=128, help="hash size per instance in MB")
     parser.add_argument("--out-csv", default="data/sf_deep_gold.csv")
-    parser.add_argument("--limit-positions", type=int, default=None)
+    parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()
 
     fens = []
@@ -46,11 +147,8 @@ def main() -> int:
             fen = line.split(",")[0].strip('"')
             fens.append(fen)
 
-    if args.limit_positions:
-        fens = fens[: args.limit_positions]
-
-    print(f"Loaded {len(fens):,} positions to evaluate at depth {args.depth}")
-    print(f"Stockfish 19 binary: {args.stockfish} ({args.threads} threads, {args.hash} MB Hash)")
+    if args.limit:
+        fens = fens[: args.limit]
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out_csv)), exist_ok=True)
 
@@ -60,66 +158,56 @@ def main() -> int:
         with open(args.out_csv) as f:
             for line in f:
                 p = line.strip().split(",")
-                if p:
+                if p and not line.startswith("fen"):
                     already_done.add(p[0].strip('"'))
-        print(f"Resuming with {len(already_done):,} positions already evaluated in {args.out_csv}")
 
-    sf = chess.engine.SimpleEngine.popen_uci(args.stockfish)
-    sf.configure({"Threads": args.threads, "Hash": args.hash})
+    todo = [f for f in fens if f not in already_done]
+    print(f"Total positions: {len(fens):,} | Already evaluated: {len(already_done):,} | To evaluate: {len(todo):,}")
+    print(
+        f"Stockfish: {args.stockfish} ({args.concurrency} instances x {args.threads_per_eng} threads = {args.concurrency*args.threads_per_eng} threads total)"
+    )
+    print(f"Target Depth: {args.depth} | Output: {args.out_csv}\n")
 
-    evaluated = len(already_done)
-    t0 = time.time()
+    if not todo:
+        print("All positions already evaluated!")
+        return 0
 
-    try:
-        with open(args.out_csv, "a") as out:
-            if evaluated == 0:
-                out.write("fen,depth,score_cp,best_move,nodes,time_s\n")
+    if not os.path.exists(args.out_csv) or os.path.getsize(args.out_csv) == 0:
+        with open(args.out_csv, "w") as f:
+            f.write("fen,depth,score_cp,best_move,nodes,time_s\n")
 
-            for i, fen in enumerate(fens):
-                if fen in already_done:
-                    continue
+    # Split todo into chunks for workers
+    chunks = [[] for _ in range(args.concurrency)]
+    for i, fen in enumerate(todo):
+        chunks[i % args.concurrency].append(fen)
 
-                board = chess.Board(fen)
-                t_pos = time.time()
-                limit = chess.engine.Limit(
-                    depth=args.depth,
-                    nodes=args.nodes,
-                    time=args.time_limit,
-                )
-                info = sf.analyse(board, limit)
-                dt = time.time() - t_pos
+    lock = threading.Lock()
+    progress = [len(already_done)]
+    t_start = time.time()
 
-                score_obj = info.get("score")
-                if score_obj is None:
-                    continue
+    with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
+        futures = [
+            pool.submit(
+                worker_loop,
+                args.stockfish,
+                chunks[i],
+                args.depth,
+                args.time_limit,
+                args.threads_per_eng,
+                args.hash,
+                args.out_csv,
+                lock,
+                progress,
+                len(fens),
+                t_start,
+            )
+            for i in range(args.concurrency)
+            if chunks[i]
+        ]
+        for fut in as_completed(futures):
+            fut.result()
 
-                # Centipawns from side-to-move perspective
-                cp = score_obj.relative.score(mate_score=10000)
-                if cp is None:
-                    cp = 10000 if score_obj.relative.mate() > 0 else -10000
-
-                actual_depth = info.get("depth", args.depth)
-                nodes = info.get("nodes", 0)
-                pv_list = info.get("pv", [])
-                best_move = pv_list[0].uci() if pv_list else "none"
-
-                out.write(f'"{fen}",{actual_depth},{cp},{best_move},{nodes},{dt:.2f}\n')
-                out.flush()
-                already_done.add(fen)
-                evaluated += 1
-
-                elapsed = time.time() - t0
-                avg_time = elapsed / max(evaluated - len(already_done) + 1, 1)
-                print(
-                    f"[{evaluated:,}/{len(fens):,}] d={actual_depth:2d} | Score: {cp:+5d} cp | "
-                    f"Move: {best_move:5s} | {nodes:8,d} nodes ({dt:.1f}s)",
-                    flush=True,
-                )
-
-    finally:
-        sf.quit()
-
-    print(f"\nEvaluation complete! Evaluated {evaluated:,} positions in {time.time()-t0:.1f}s")
+    print(f"\n\nEvaluation complete in {time.time()-t_start:.1f}s!")
     print(f"Saved to: {args.out_csv}")
     return 0
 
