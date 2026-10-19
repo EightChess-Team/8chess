@@ -9,7 +9,6 @@ import sys
 def main():
     in_csv = "data/losses_10k.csv"
     out_csv = "data/critical_loss_fens.txt"
-    target_count = 5000
 
     seen = set()
     selected = []
@@ -29,18 +28,11 @@ def main():
                         seen.add(fen)
                         selected.append(fen)
 
-    # Subsample evenly if more than target_count
-    if len(selected) > target_count:
-        step = len(selected) / target_count
-        sampled = [selected[int(i * step)] for i in range(target_count)]
-    else:
-        sampled = selected
-
     with open(out_csv, "w") as out:
-        for fen in sampled:
+        for fen in selected:
             out.write(fen + "\n")
 
-    print(f"Extracted {len(sampled):,} critical loss positions (plies 14-45) to {out_csv}")
+    print(f"Extracted {len(selected):,} critical loss positions (plies 14-45) to {out_csv}")
 
 if __name__ == "__main__":
     main()
