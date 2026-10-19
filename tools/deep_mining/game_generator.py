@@ -137,7 +137,7 @@ def play_one_game(
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run 10,000 games of 8Chess vs Stockfish 19")
     parser.add_argument("--engine1", default="target/release/eightchess")
-    parser.add_argument("--opt1", action="append", default=["EvalFile=networks/eightchess_lc0_best.nnue"])
+    parser.add_argument("--opt1", action="append", default=[])
     parser.add_argument(
         "--engine2",
         default="/home/hemesh/Videos/8chess/bin/stockfish/stockfish-linux-x86-64-universal",
