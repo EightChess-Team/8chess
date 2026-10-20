@@ -144,6 +144,7 @@ def main() -> int:
     )
     parser.add_argument("--opt2", action="append", default=[])
     parser.add_argument("--openings", default="books/8moves_v3.fen")
+    parser.add_argument("--no-book", action="store_true", help="play pure startpos with zero opening books")
     parser.add_argument("--games", type=int, default=10000, help="total games (default: 10,000)")
     parser.add_argument("--concurrency", type=int, default=6, help="parallel game workers")
     parser.add_argument("--tc", default="1.0+0.01", help="time control base+inc in seconds")
@@ -167,9 +168,13 @@ def main() -> int:
     opt1 = parse_opts(args.opt1)
     opt2 = parse_opts(args.opt2)
 
-    with open(args.openings) as f:
-        raw_openings = [line.strip() for line in f if line.strip()]
-    print(f"Loaded {len(raw_openings)} opening books from {args.openings}")
+    if args.no_book or not args.openings or args.openings.lower() in ("startpos", "none"):
+        raw_openings = ["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+        print("Opening Book: NONE (Pure Startpos from Move 1)")
+    else:
+        with open(args.openings) as f:
+            raw_openings = [line.strip() for line in f if line.strip()]
+        print(f"Loaded {len(raw_openings)} opening books from {args.openings}")
 
     # Build balanced color-pairs: each opening played twice (once White, once Black)
     pairs_needed = (args.games + 1) // 2

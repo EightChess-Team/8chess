@@ -179,6 +179,7 @@ def main() -> int:
     parser.add_argument("--concurrency", type=int, default=4, help="parallel worker games")
     parser.add_argument("--tc", default="5+0.05", help="time control base+inc in seconds")
     parser.add_argument("--openings", default=None, help="path to file with opening FENs (1 per line)")
+    parser.add_argument("--no-book", action="store_true", help="play pure startpos with zero opening books")
     parser.add_argument("--pgn", default="matches.pgn", help="output PGN file")
     args = parser.parse_args()
 
@@ -196,7 +197,10 @@ def main() -> int:
     opt2 = parse_opts(args.opt2)
 
     # Load opening FENs
-    if args.openings and os.path.exists(args.openings):
+    if args.no_book:
+        openings = ["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+        print("Opening Book: NONE (Pure startpos from Move 1)")
+    elif args.openings and os.path.exists(args.openings):
         with open(args.openings) as f:
             openings = [line.strip() for line in f if line.strip() and not line.startswith("#")]
     else:
