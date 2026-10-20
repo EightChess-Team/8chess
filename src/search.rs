@@ -910,8 +910,6 @@ fn search<NODE: NodeType>(
 
             if td.board.in_check() {
                 reduction -= 955;
-            } else if td.board.all_threats().contains(td.board.king_square(stm)) {
-                reduction -= 750;
             }
 
             if td.cutoff_count[ply + 1] > 2 {
