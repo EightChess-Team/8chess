@@ -130,112 +130,76 @@ with open("/kaggle/working/curated_battlegrounds.csv") as f:
 print(f"Loaded {{len(battleground_records):,}} curated tactical battleground positions!")
 """)
 
-    md("""## 3. Leela (Lc0 BT4) Multi-GPU Evaluation & Disagreement Mining""")
+    md("""## 3. Leela (Lc0 BT4) GPU Evaluation & Disagreement Mining""")
 
-    code("""import subprocess
-import threading
-from concurrent.futures import ThreadPoolExecutor
+    code("""import chess.engine
 
-def make_lc0_process(lc0_bin, net_path, gpu_id=0):
-    cmd = [
-        lc0_bin,
-        f"--weights={net_path}",
-        "--backend=cuda-fp16",
-        f"--backend-opts=gpu={gpu_id}",
-        "--threads=2",
-    ]
-    return subprocess.Popen(
-        cmd,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        text=True,
-        bufsize=1,
-    )
+# Patch python-chess bestmove parser to safely handle Lc0 null tokens (a1a1, (none), 0000)
+orig_parse = chess.engine._parse_uci_bestmove
+def safe_parse(board, tokens):
+    if tokens and tokens[0].lower() in ("a1a1", "0000", "(none)"):
+        return chess.engine.BestMove(None, None)
+    try:
+        return orig_parse(board, tokens)
+    except Exception:
+        return chess.engine.BestMove(None, None)
+chess.engine._parse_uci_bestmove = safe_parse
 
-def query_lc0(proc, fen, nodes=2500):
-    proc.stdin.write(f"position fen {fen}\\ngo nodes {nodes}\\n")
-    proc.stdin.flush()
-    score_cp = 0
-    best_move = "none"
-    while True:
-        line = proc.stdout.readline()
-        if not line:
-            break
-        line = line.strip()
-        if line.startswith("info ") and "score cp" in line:
-            parts = line.split()
-            if "cp" in parts:
-                idx = parts.index("cp")
-                if idx + 1 < len(parts):
-                    try:
-                        score_cp = int(parts[idx + 1])
-                    except ValueError:
-                        pass
-            if "pv" in parts:
-                idx = parts.index("pv")
-                if idx + 1 < len(parts):
-                    best_move = parts[idx + 1]
-        elif line.startswith("bestmove"):
-            parts = line.split()
-            if len(parts) >= 2 and parts[1] not in ("a1a1", "(none)", "0000"):
-                best_move = parts[1]
-            break
-    return score_cp, best_move
-
-num_workers = max(num_gpus, 1)
-print(f"Spawning {num_workers} parallel Lc0 GPU instances across all available GPUs...")
-procs = [make_lc0_process(LC0_BIN, NET_PATH, gpu_id=i % max(num_gpus, 1)) for i in range(num_workers)]
+print("Initializing Lc0 with BT4 network on Kaggle GPU...")
+lc0_engine = chess.engine.SimpleEngine.popen_uci(
+    [LC0_BIN, f"--weights={NET_PATH}", "--backend=cuda-fp16", "--threads=2"]
+)
+# Ensure weights are fully loaded into GPU VRAM
+lc0_engine.ping()
+print("Lc0 successfully initialized on GPU and ready!")
 
 disagreements_file = "/kaggle/working/disagreements_gold.csv"
 disagreements = []
 t0 = time.time()
-lock = threading.Lock()
-completed = [0]
-
-def eval_worker(worker_id, fens_subset):
-    proc = procs[worker_id]
-    for fen, depth, sf_cp, sf_move in fens_subset:
-        board = chess.Board(fen)
-        if board.is_game_over():
-            continue
-            
-        lc0_cp, lc0_move = query_lc0(proc, fen, nodes=2500)
-        delta = abs(sf_cp - lc0_cp)
-        move_mismatch = bool(sf_move != lc0_move and sf_move != "none")
-        is_blindspot = delta >= 150 or (move_mismatch and delta >= 75)
-        
-        with lock:
-            if is_blindspot:
-                disagreements.append((fen, sf_cp, lc0_cp, delta, sf_move, lc0_move))
-            with open(disagreements_file, "a") as out:
-                out.write(f'"{fen}",{depth},{sf_cp},{sf_move},{lc0_cp},{lc0_move},{delta},{is_blindspot}\\n')
-            completed[0] += 1
-            done = completed[0]
-            if done % 100 == 0 or done == len(battleground_records):
-                elapsed = time.time() - t0
-                rate = done / max(elapsed, 1)
-                print(f"[{done:5d}/{len(battleground_records):5d}] Lc0 ({num_workers} GPUs): {rate:.1f} pos/s | Disagreements: {len(disagreements):,}", end="\\r", flush=True)
 
 with open(disagreements_file, "w") as out:
     out.write("fen,sf_depth,sf_cp,sf_move,lc0_cp,lc0_move,delta_cp,is_blindspot\\n")
 
-chunks = [[] for _ in range(num_workers)]
-for i, item in enumerate(battleground_records):
-    chunks[i % num_workers].append(item)
+print(f"Starting Leela (Lc0 BT4) evaluation across {len(battleground_records):,} positions...")
 
-with ThreadPoolExecutor(max_workers=num_workers) as pool:
-    futures = [pool.submit(eval_worker, i, chunks[i]) for i in range(num_workers)]
-    for f in futures:
-        f.result()
+with open(disagreements_file, "a") as out:
+    for i, (fen, depth, sf_cp, sf_move) in enumerate(battleground_records):
+        board = chess.Board(fen)
+        if board.is_game_over():
+            continue
+            
+        limit = chess.engine.Limit(nodes=800)
+        try:
+            info = lc0_engine.analyse(board, limit)
+            score_obj = info.get("score")
+            pv = info.get("pv", [])
+            lc0_move = pv[0].uci() if pv else "none"
+            if score_obj:
+                lc0_cp = score_obj.relative.score(mate_score=10000)
+                if lc0_cp is None:
+                    lc0_cp = 10000 if score_obj.relative.mate() > 0 else -10000
+            else:
+                lc0_cp = 0
+        except Exception:
+            lc0_cp = 0
+            lc0_move = "none"
+            
+        delta = abs(sf_cp - lc0_cp)
+        move_mismatch = bool(sf_move != lc0_move and sf_move != "none")
+        is_blindspot = delta >= 150 or (move_mismatch and delta >= 75)
+        
+        if is_blindspot:
+            disagreements.append((fen, sf_cp, lc0_cp, delta, sf_move, lc0_move))
+            
+        out.write(f'"{fen}",{depth},{sf_cp},{sf_move},{lc0_cp},{lc0_move},{delta},{is_blindspot}\\n')
+        
+        if (i + 1) % 500 == 0 or i == len(battleground_records) - 1:
+            elapsed = time.time() - t0
+            rate = (i + 1) / max(elapsed, 1)
+            eta = (len(battleground_records) - (i + 1)) / max(rate, 1e-4)
+            print(f"[{i+1:5d}/{len(battleground_records):5d}] Lc0 GPU: {rate:.1f} pos/s | Disagreements: {len(disagreements):,} | ETA: {eta/60:.1f}m", flush=True)
 
-for proc in procs:
-    try:
-        proc.stdin.write("quit\\n")
-        proc.stdin.flush()
-        proc.wait(timeout=5)
-    except Exception:
-        pass
+lc0_engine.quit()
 
 print(f"\\n\\nDisagreement Mining Complete!")
 print(f"Total Evaluated: {len(battleground_records):,} positions")
