@@ -859,7 +859,7 @@ fn search<NODE: NodeType>(
 
         // Late Move Reductions (LMR)
         if depth >= 2 && move_count >= 2 {
-            let mut reduction = 269 * depth.ilog2() as i32;
+            let mut reduction = 240 * depth.ilog2() as i32 + 310 * move_count.ilog2() as i32;
 
             reduction -= (425 * improvement / 128).clamp(-241, 1155);
             reduction -= 3417 * correction_value.abs() / 1024;
@@ -875,7 +875,8 @@ fn search<NODE: NodeType>(
                 reduction -= 179 * history / 1024;
                 reduction += 418 * ((alpha - estimated_score).clamp(-65, 91)) / 128;
             } else {
-                reduction += 1687;
+                let good_see = td.board.see(mv, 0);
+                reduction += if good_see { 720 } else { 1850 };
                 reduction -= 130 * history / 1024;
             }
 
