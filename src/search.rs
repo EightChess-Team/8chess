@@ -142,7 +142,7 @@ pub fn start(td: &mut ThreadData, report: Report, thread_count: usize) {
                     s if s <= alpha => {
                         alpha = (score - delta).max(-Score::INFINITE);
                         beta = (alpha + delta).min(beta);
-                        delta += 26 * delta / 128;
+                        delta += delta / 2;
                     }
                     s if s >= beta => {
                         alpha = (beta - delta).max(alpha);
@@ -250,7 +250,7 @@ pub fn start(td: &mut ThreadData, report: Report, thread_count: usize) {
 
             let score_trend = {
                 let difference = (td.previous_best_score - td.root_moves[0].score) as f32;
-                (0.7426 + 0.0480 * difference).clamp(0.7214, 1.4031)
+                (0.7426 + 0.0480 * difference).clamp(0.6500, 2.2500)
             };
 
             let pv_stability = (1.2881 - 0.0440 * pv_stability as f32).max(0.7160);
@@ -747,7 +747,7 @@ fn search<NODE: NodeType>(
         }
         // Negative Extensions
         else if tt_score >= beta || cut_node {
-            extension = -3;
+            extension = -2;
         }
     }
     // Low Depth Singular Extensions (LDSE)
