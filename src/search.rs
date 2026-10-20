@@ -1,4 +1,6 @@
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicI32, Ordering};
+
+pub static CONTEMPT: AtomicI32 = AtomicI32::new(8);
 
 use crate::{
     evaluation::correct_eval,
@@ -120,7 +122,16 @@ pub fn start(td: &mut ThreadData, report: Report, thread_count: usize) {
             let best_avg = ((td.shared.best_stats[td.pv_index].load(Ordering::Acquire) & 0xffff) as i32 - 32768
                 + average[td.pv_index])
                 / 2;
-            td.optimism[td.board.side_to_move()] = 113 * best_avg / (best_avg.abs() + 201);
+
+            let contempt = CONTEMPT.load(Ordering::Relaxed);
+            let contempt_bias = if td.board.side_to_move() == Color::White {
+                contempt * (td.board.material()).min(6000) / 6000
+            } else {
+                -(contempt / 2) * (td.board.material()).min(6000) / 6000
+            };
+
+            let effective_avg = best_avg + contempt_bias;
+            td.optimism[td.board.side_to_move()] = 113 * effective_avg / (effective_avg.abs() + 201);
             td.optimism[!td.board.side_to_move()] = -td.optimism[td.board.side_to_move()];
 
             loop {

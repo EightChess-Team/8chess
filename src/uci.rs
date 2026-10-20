@@ -170,6 +170,7 @@ fn uci() {
     println!("option name UCI_Chess960 type check default false");
     println!("option name MultiPV type spin default 1 min 1 max {MAX_MOVES}");
     println!("option name EvalFile type string default <internal>");
+    println!("option name Contempt type spin default 8 min -100 max 100");
 
     #[cfg(feature = "syzygy")]
     println!("option name SyzygyPath type string default");
@@ -330,6 +331,11 @@ fn set_option(threads: &mut ThreadPool, settings: &mut Settings, shared: &Arc<Sh
         ["name", "MultiPV", "value", v] => {
             settings.multi_pv = v.parse().unwrap_or_default();
             println!("info string set MultiPV to {v}");
+        }
+        ["name", "Contempt", "value", v] => {
+            let val: i32 = v.parse().unwrap_or(24);
+            crate::search::CONTEMPT.store(val, std::sync::atomic::Ordering::Relaxed);
+            println!("info string set Contempt to {v}");
         }
         ["name", "EvalFile", "value", v] => {
             // Reserve thread 0's data while we swap the network so that the
