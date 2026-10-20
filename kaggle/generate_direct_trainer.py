@@ -112,15 +112,16 @@ if not os.path.exists(MASTER_PATH):
 print(f"8Chess master base network ready: {{os.path.getsize(MASTER_PATH):,}} bytes")
 """)
 
-    md("""## 2. Ingest 29,676 Stockfish 19 + Leela BT4 Completed Disagreement Evaluations""")
+    md("""## 2. Ingest 22,028 Hybrid Tactical + Endgame Battlegrounds""")
 
-    with open("data/disagreements_gold.csv") as f:
-        lines = f.readlines()
-    header = lines[0]
-    blindspots = [l for l in lines[1:] if "True" in l]
-    non_blindspots = [l for l in lines[1:] if "True" not in l][:6000]
-    selected_text = "".join([header] + blindspots + non_blindspots)
-    raw_disagreements = selected_text.encode("utf-8")
+    lines_dis = open("data/disagreements_gold.csv").readlines()[1:]
+    blindspots = [l for l in lines_dis if "True" in l]
+
+    lines_endgame = open("data/endgame_losses.csv").readlines()[:8000]
+    lines_blunders = open("data/stockfish_blunders_60k.csv").readlines()[:5000]
+
+    all_data = blindspots + lines_endgame + lines_blunders
+    raw_disagreements = "".join(all_data).encode("utf-8")
 
     compressed_disagreements = gzip.compress(raw_disagreements, compresslevel=9)
     b64_disagreements = base64.b64encode(compressed_disagreements).decode("ascii")
@@ -130,7 +131,7 @@ import gzip
 
 b64_data = {repr(b64_disagreements)}
 csv_bytes = gzip.decompress(base64.b64decode(b64_data.encode("ascii")))
-disagreements_file = "/kaggle/working/disagreements_gold.csv"
+disagreements_file = "/kaggle/working/hybrid_battlegrounds.csv"
 with open(disagreements_file, "wb") as f:
     f.write(csv_bytes)
 
@@ -142,30 +143,30 @@ with open(disagreements_file) as f:
     for line in f:
         parts = line.strip().split(",")
         if len(parts) >= 8 and not line.startswith("fen"):
+            # Disagreement format from Lc0 BT4
             fen = parts[0].strip('"')
             try:
                 sf_cp = float(parts[2])
                 lc0_cp = float(parts[4])
                 is_blindspot = parts[7].strip() == "True"
-                
-                # Where Leela and Stockfish disagree, give Leela's strategic evaluation heavy weight
                 effective_cp = (0.25 * sf_cp + 0.75 * lc0_cp) if is_blindspot else (0.5 * sf_cp + 0.5 * lc0_cp)
                 target = 1.0 / (1.0 + 10.0 ** (-effective_cp / 400.0))
-                
                 fens.append(fen)
                 targets.append(target)
-                
                 if is_blindspot:
                     blindspot_count += 1
-                    # Oversample the blindspots 3x to enforce tactical correction
-                    fens.append(fen)
-                    targets.append(target)
-                    fens.append(fen)
-                    targets.append(target)
             except Exception:
                 continue
+        elif len(parts) >= 3 and not line.startswith("fen"):
+            # Endgame loss or Stockfish blunder format
+            fen = parts[0].strip('"')
+            res = parts[1].strip()
+            # If 8Chess won: target = 1.0; if Stockfish won: target = 0.0
+            target = 1.0 if res == "1-0" else (0.0 if res == "0-1" else 0.5)
+            fens.append(fen)
+            targets.append(target)
 
-print(f"Loaded {{len(targets):,}} training positions (including {{blindspot_count:,}} flagged Stockfish blindspots oversampled)!")
+print(f"Loaded {{len(targets):,}} hybrid positions ({{blindspot_count:,}} Leela blindspots + 8,000 Bucket 0 endgames + 5,000 Stockfish blunders)!")
 """)
 
     md("""## 3. Encode Training Features into Packed Ragged Streams""")
