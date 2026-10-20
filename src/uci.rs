@@ -31,7 +31,7 @@ impl Default for Settings {
         Self {
             frc: false,
             multi_pv: 1,
-            move_overhead: 100,
+            move_overhead: 10,
             report: Report::Full,
         }
     }
@@ -164,7 +164,7 @@ fn uci() {
     println!("id author 8Chess project");
     println!("option name Hash type spin default {DEFAULT_TT_SIZE} min 1 max 262144");
     println!("option name Threads type spin default 1 min 1 max {}", ThreadPool::available_threads());
-    println!("option name MoveOverhead type spin default 100 min 0 max 2000");
+    println!("option name MoveOverhead type spin default 10 min 0 max 2000");
     println!("option name Minimal type check default false");
     println!("option name Clear Hash type button");
     println!("option name UCI_Chess960 type check default false");
