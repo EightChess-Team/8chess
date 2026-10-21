@@ -10,7 +10,7 @@ mod attacks;
 mod magics;
 mod maps;
 
-const BASE_URL: &str = "https://github.com/codedeliveryservice/RecklessNetworks/releases/download/networks";
+const BASE_URL: &str = "https://github.com/EightChess-Team/8chess/releases/download/networks";
 const NETWORK_NAME: &str = "eightchess_1024_master.nnue";
 
 fn main() {
@@ -109,7 +109,9 @@ fn download_network() {
         std::fs::create_dir_all("networks").unwrap();
         std::fs::write(format!("networks/{NETWORK_NAME}"), response.stdout).unwrap();
     } else {
-        panic!("Failed to download the network");
+        panic!(
+            "Failed to download {BASE_URL}/{NETWORK_NAME}. Place the network at networks/{NETWORK_NAME} or set EVALFILE to a compatible .nnue file."
+        );
     }
 }
 
