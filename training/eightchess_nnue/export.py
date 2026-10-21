@@ -22,7 +22,7 @@ import numpy as np
 import torch
 
 from . import format as nnue_format
-from .constants import FT_QUANT, L1_QUANT
+from .constants import FT_QUANT, L1_QUANT, L1_SIZE, L2_SIZE, OUTPUT_BUCKETS
 from .model import EightChessNNUE
 from .quantized import evaluate
 
@@ -32,7 +32,11 @@ def quantize_weights(state: dict[str, torch.Tensor]) -> dict[str, np.ndarray]:
         return state[name].detach().cpu().numpy()
 
     l1_raw = np.clip(np.round(arr("l1_weight") * L1_QUANT), -127, 127).astype(np.int8)
-    l1_serialized = l1_raw.reshape(8, 16, 192, 4).transpose(0, 2, 1, 3).reshape(8, 12288)
+    l1_serialized = (
+        l1_raw.reshape(OUTPUT_BUCKETS, L2_SIZE, L1_SIZE // 4, 4)
+        .transpose(0, 2, 1, 3)
+        .reshape(OUTPUT_BUCKETS, L2_SIZE * L1_SIZE)
+    )
 
     return {
         "ft_piece_weights": np.clip(np.round(arr("ft_piece.weight") * FT_QUANT), -32767, 32767).astype(np.int16),

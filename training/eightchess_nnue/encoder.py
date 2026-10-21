@@ -11,6 +11,7 @@ Encoding is CPU-bound python-chess work; `encode_fens` parallelizes it.
 
 from __future__ import annotations
 
+import math
 import multiprocessing as mp
 from functools import partial
 
@@ -71,6 +72,66 @@ def encode_fens(
                 streams[s].append(feats[s])
             buckets[index] = bucket
             targets[index] = target
+
+    out: dict[str, np.ndarray] = {}
+    names = ["piece_stm", "threat_stm", "piece_opp", "threat_opp"]
+    for name, feats in zip(names, streams):
+        offsets = np.zeros(n + 1, dtype=np.int64)
+        for i, f in enumerate(feats):
+            offsets[i + 1] = offsets[i] + len(f)
+        flat = np.empty(int(offsets[-1]), dtype=np.int32)
+        pos = 0
+        for f in feats:
+            flat[pos : pos + len(f)] = f
+            pos += len(f)
+        out[f"{name}_indices"] = flat
+        out[f"{name}_offsets"] = offsets
+    out["bucket"] = buckets
+    out["target"] = targets
+    return out
+
+
+def _encode_fen_scored_worker(
+    args: tuple[int, str, int, int],
+) -> tuple[int, list[list[int]], int, float, int]:
+    index, fen, score, result = args
+    board = chess.Board(fen)
+    ps, ts, po, to, bucket, stm = encode_board(board)
+    result_wdl = 0.5 if result == 0 else (1.0 if result > 0 else 0.0)
+    return index, [ps, ts, po, to], bucket, result_wdl, score
+
+
+def encode_fens_scored(
+    fens: list[str],
+    scores: list[int],
+    results: list[int],
+    lam: float = 1.0,
+    scaling: float = 410.0,
+    workers: int = 8,
+    chunk: int = 256,
+) -> dict[str, np.ndarray]:
+    """Encodes positions with Stockfish-style eval/result blending.
+
+    `lambda=1.0` trains on the search evaluation, `lambda=0.0` trains on game
+    results. Scores and results are both from the side-to-move perspective.
+    """
+    assert len(fens) == len(scores) == len(results)
+    n = len(fens)
+    streams: list[list[list[int]]] = [[], [], [], []]
+    buckets = np.empty(n, dtype=np.uint8)
+    targets = np.empty(n, dtype=np.float32)
+
+    args = [(i, f, s, r) for i, (f, s, r) in enumerate(zip(fens, scores, results))]
+    with mp.Pool(workers) as pool:
+        for index, feats, bucket, result_wdl, score in pool.imap_unordered(
+            _encode_fen_scored_worker, args, chunksize=chunk
+        ):
+            for s in range(4):
+                streams[s].append(feats[s])
+            buckets[index] = bucket
+            clipped = max(-2000, min(2000, score))
+            eval_wdl = 1.0 / (1.0 + math.exp(-clipped / scaling))
+            targets[index] = lam * eval_wdl + (1.0 - lam) * result_wdl
 
     out: dict[str, np.ndarray] = {}
     names = ["piece_stm", "threat_stm", "piece_opp", "threat_opp"]

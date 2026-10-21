@@ -120,6 +120,7 @@ def evaluate_dataset(model: EightChessNNUE, dataset: EncodedDataset, batch_size:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", required=True, help="path to train .npz")
+    parser.add_argument("--base", default=None, help="base .nnue to fine-tune from")
     parser.add_argument("--val", default=None, help="path to val .npz")
     parser.add_argument("--out-dir", default="checkpoints", help="output directory")
     parser.add_argument("--epochs", type=int, default=10)
@@ -150,7 +151,11 @@ def main() -> int:
         val_dataset = EncodedDataset(val_raw, device)
         print(f"Loaded {val_dataset.size} validation positions")
 
-    model = EightChessNNUE().to(device)
+    if args.base:
+        print(f"Loading base network: {args.base}")
+        model = EightChessNNUE.load_network_file(args.base).to(device)
+    else:
+        model = EightChessNNUE().to(device)
 
     optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
     total_steps = (train_dataset.size // args.batch_size + 1) * args.epochs

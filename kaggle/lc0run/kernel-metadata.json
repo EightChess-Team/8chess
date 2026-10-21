@@ -1,0 +1,16 @@
+{
+  "id": "srinivaskasukurthy/8chess-lc0-mixed",
+  "title": "8Chess Lc0 Mixed",
+  "code_file": "lc0_trainer.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "dataset_sources": [
+    "srinivaskasukurthy/8chess-sf-d9-368k"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

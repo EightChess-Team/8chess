@@ -24,14 +24,14 @@ from .constants import (
 # (name, dtype, shape, byte offset) -- offsets must match src/nnue.rs exactly.
 _LAYOUT = [
     ("ft_threat_weights", np.int8, (THREAT_FEATURES, L1_SIZE), 0),
-    ("ft_piece_weights", np.int16, (PIECE_FEATURES, L1_SIZE), 51_351_552),
-    ("ft_biases", np.int16, (L1_SIZE,), 63_148_032),
-    ("l1_weights", np.int8, (OUTPUT_BUCKETS, L2_SIZE * L1_SIZE), 63_149_568),
-    ("l1_biases", np.float32, (OUTPUT_BUCKETS, L2_SIZE), 63_247_872),
-    ("l2_weights", np.float32, (OUTPUT_BUCKETS, L2_SIZE, L3_SIZE), 63_248_384),
-    ("l2_biases", np.float32, (OUTPUT_BUCKETS, L3_SIZE), 63_264_768),
-    ("l3_weights", np.float32, (OUTPUT_BUCKETS, L3_SIZE), 63_265_792),
-    ("l3_biases", np.float32, (OUTPUT_BUCKETS,), 63_266_816),
+    ("ft_piece_weights", np.int16, (PIECE_FEATURES, L1_SIZE), 68_468_736),
+    ("ft_biases", np.int16, (L1_SIZE,), 84_197_376),
+    ("l1_weights", np.int8, (OUTPUT_BUCKETS, L2_SIZE * L1_SIZE), 84_199_424),
+    ("l1_biases", np.float32, (OUTPUT_BUCKETS, L2_SIZE), 84_330_496),
+    ("l2_weights", np.float32, (OUTPUT_BUCKETS, L2_SIZE, L3_SIZE), 84_331_008),
+    ("l2_biases", np.float32, (OUTPUT_BUCKETS, L3_SIZE), 84_347_392),
+    ("l3_weights", np.float32, (OUTPUT_BUCKETS, L3_SIZE), 84_348_416),
+    ("l3_biases", np.float32, (OUTPUT_BUCKETS,), 84_349_440),
 ]
 
 
@@ -45,7 +45,7 @@ def validate_layout() -> None:
         end = offset + size
     assert end <= NETWORK_SIZE
     assert NETWORK_SIZE - end < 64  # trailing padding only
-    assert NETWORK_SIZE == 63_266_880
+    assert NETWORK_SIZE == 84_349_504
 
 
 validate_layout()

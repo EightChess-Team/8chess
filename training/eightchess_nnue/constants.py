@@ -5,7 +5,7 @@ See docs/nnue_format.md for the full binary layout specification.
 """
 
 # Feature transformer
-L1_SIZE = 768
+L1_SIZE = 1024
 L2_SIZE = 16
 L3_SIZE = 32
 
@@ -50,7 +50,7 @@ OUTPUT_BUCKETS_LAYOUT = [
 ]
 
 # Exact serialized size of the Parameters struct (bytes)
-NETWORK_SIZE = 63_266_880
+NETWORK_SIZE = 84_349_504
 
 
 def output_bucket(piece_count: int) -> int:

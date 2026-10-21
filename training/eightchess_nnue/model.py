@@ -3,12 +3,12 @@
 Mirrors the engine's structure exactly (`src/nnue.rs`, `forward/scalar.rs`):
 
     acc[pov]  = ft_bias + sum(ft_piece_rows) + sum(ft_threat_rows)   (pov)
-    ft_out    = concat(pair(acc[stm]), pair(acc[opp]))               (768)
+    ft_out    = concat(pair(acc[stm]), pair(acc[opp]))               (L1_SIZE)
     l1        = clamp(ft_out @ l1_weights[bucket] + l1_biases[bucket], 0, 1)
     l2, l3    = affine + clamp(0, 1) / affine
     score_cp  = l3_out * 380
 
-`pair(v)` squares `clamp(v[:384], 0, 1)` with `clamp(v[384:], 0, 1)`.
+`pair(v)` squares `clamp(v[:L1_SIZE//2], 0, 1)` with `clamp(v[L1_SIZE//2:], 0, 1)`.
 Quantization-aware scales: 255 for the FT (i16 piece / i8 threat rows),
 64 for L1 (i8 rows), using straight-through estimators so the exported
 integer weights match training closely.
@@ -88,7 +88,11 @@ class EightChessNNUE(nn.Module):
             model.ft_bias.copy_(torch.from_numpy(net["ft_biases"].astype(np.float32) / FT_QUANT))
 
             l1_raw = net["l1_weights"].astype(np.float32) / L1_QUANT
-            l1_model = l1_raw.reshape(8, 192, 16, 4).transpose(0, 2, 1, 3).reshape(8, 16, 768)
+            l1_model = (
+                l1_raw.reshape(OUTPUT_BUCKETS, L1_SIZE // 4, L2_SIZE, 4)
+                .transpose(0, 2, 1, 3)
+                .reshape(OUTPUT_BUCKETS, L2_SIZE, L1_SIZE)
+            )
             model.l1_weight.copy_(torch.from_numpy(l1_model))
             model.l1_bias.copy_(torch.from_numpy(net["l1_biases"]))
 

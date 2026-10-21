@@ -17,7 +17,7 @@ pub enum Limits {
     Cyclic(u64, u64, u64),
 }
 
-const TIME_OVERHEAD_MS: u64 = 15;
+const TIME_OVERHEAD_MS: u64 = 5;
 
 #[derive(Clone)]
 pub struct TimeManager {
@@ -44,8 +44,9 @@ impl TimeManager {
                 let soft_bound = (soft_scale * main.saturating_sub(move_overhead) as f64 + 0.75 * inc as f64) as u64;
                 let hard_bound = (hard_scale * main.saturating_sub(move_overhead) as f64 + 0.75 * inc as f64) as u64;
 
-                soft = soft_bound.min(main.saturating_sub(move_overhead));
-                hard = hard_bound.min(main.saturating_sub(move_overhead));
+                let min_time = (inc / 2).max(15);
+                soft = soft_bound.min(main.saturating_sub(move_overhead)).max(min_time);
+                hard = hard_bound.min(main.saturating_sub(move_overhead)).max(min_time * 2);
             }
             Limits::Cyclic(main, inc, moves) => {
                 let main = main.saturating_sub(move_overhead);

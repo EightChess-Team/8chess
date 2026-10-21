@@ -11,7 +11,7 @@ mod magics;
 mod maps;
 
 const BASE_URL: &str = "https://github.com/codedeliveryservice/RecklessNetworks/releases/download/networks";
-const NETWORK_NAME: &str = "eightchess_tuned_master.nnue";
+const NETWORK_NAME: &str = "eightchess_1024_master.nnue";
 
 fn main() {
     generate_model_env();

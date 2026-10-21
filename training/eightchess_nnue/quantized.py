@@ -27,7 +27,7 @@ from .constants import (
 )
 from .features import piece_feature_indices, threat_feature_indices
 
-_CHUNKS = L1_SIZE // 4  # 192 four-byte chunks
+_CHUNKS = L1_SIZE // 4  # 256 four-byte chunks
 
 
 def _wrap16(x: np.ndarray) -> np.ndarray:

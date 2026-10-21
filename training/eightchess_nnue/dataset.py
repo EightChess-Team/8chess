@@ -52,6 +52,32 @@ def iter_pgn_positions(
                     yield board.fen(), result
 
 
+def iter_plain(path: str) -> Iterator[tuple[str, int, int]]:
+    """Yields (fen, score, result) from Stockfish `.plain` training data.
+
+    Both score and result are from the side-to-move perspective; result is
+    -1/0/+1 for loss/draw/win.
+    """
+    fen: str | None = None
+    score = 0
+    result = 0
+
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("fen "):
+                fen = line[4:]
+            elif line.startswith("score "):
+                score = int(line[6:])
+            elif line.startswith("result "):
+                result = int(line[7:])
+            elif line == "e" and fen is not None:
+                yield fen, score, result
+                fen = None
+                score = 0
+                result = 0
+
+
 def iter_fen_results(path: str) -> Iterator[tuple[str, str]]:
     """Yields (fen, result) from a CSV file: `fen,result` per line."""
     with open(path) as f:
@@ -86,3 +112,28 @@ def sample_positions(
             if max_samples and len(fens) >= max_samples:
                 return fens, results
     return fens, results
+
+
+def sample_plain_positions(
+    plain_files: Iterable[str],
+    stride: int = 1,
+    max_samples: int | None = None,
+) -> tuple[list[str], list[int], list[int]]:
+    fens: list[str] = []
+    scores: list[int] = []
+    results: list[int] = []
+    skip = max(stride, 1)
+
+    for plain_file in plain_files:
+        for fen, score, result in iter_plain(plain_file):
+            if skip > 1:
+                skip -= 1
+                continue
+            skip = max(stride, 1)
+            fens.append(fen)
+            scores.append(score)
+            results.append(result)
+            if max_samples and len(fens) >= max_samples:
+                return fens, scores, results
+
+    return fens, scores, results

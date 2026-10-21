@@ -1,0 +1,14 @@
+{
+  "id": "srinivaskasukurthy/8chess-d9-run",
+  "title": "8Chess D9 Run",
+  "code_file": "d9_trainer.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "dataset_sources": ["srinivaskasukurthy/8chess-sf-d9-368k"],
+  "competition_sources": [],
+  "kernel_sources": []
+}

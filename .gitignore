@@ -7,8 +7,12 @@ eight_chess*
 bindings.rs
 /data
 /results
+/checkpoints
 bin/
 *.npz
+*.binpack
+*.pgn
+*.log
 *.pt
 __pycache__/
 *.pyc

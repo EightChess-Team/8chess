@@ -1,8 +1,10 @@
 use std::sync::atomic::{AtomicI32, Ordering};
 
 pub static CONTEMPT: AtomicI32 = AtomicI32::new(8);
+pub static SHARPNESS: AtomicI32 = AtomicI32::new(0);
 
 use crate::{
+    board::NullBoardObserver,
     evaluation::correct_eval,
     movepick::{MovePicker, Stage},
     stack::Stack,
@@ -305,7 +307,57 @@ pub fn start(td: &mut ThreadData, report: Report, thread_count: usize) {
         td.print_uci_info(td.root_depth);
     }
 
+    apply_sharpness(td);
+
     td.previous_best_score = td.root_moves[0].score;
+}
+
+fn apply_sharpness(td: &mut ThreadData) {
+    let sharpness = SHARPNESS.load(Ordering::Relaxed);
+
+    if sharpness <= 0
+        || td.root_moves.len() < 2
+        || td.board.side_to_move() != Color::White
+        || td.root_moves[0].score.abs() > 30
+        || is_decisive(td.root_moves[0].score)
+        || td.root_moves[0].score == -Score::INFINITE
+    {
+        return;
+    }
+
+    let best_score = td.root_moves[0].score;
+    let penalty = (12 * sharpness / 100).max(1);
+    let mut best_index = 0;
+    let mut best_key = i32::MIN;
+
+    for (index, rm) in td.root_moves.iter().take(8).enumerate() {
+        if best_score - rm.score > 15 || rm.score == -Score::INFINITE || is_decisive(rm.score) {
+            continue;
+        }
+
+        let mut board = td.board.clone();
+        board.make_move(rm.mv, &mut NullBoardObserver);
+
+        if board.is_draw(1) {
+            continue;
+        }
+
+        let mut key = rm.score;
+
+        if rm.mv.is_noisy() {
+            key -= penalty;
+        }
+
+        if key > best_key {
+            best_key = key;
+            best_index = index;
+        }
+    }
+
+    if best_index != 0 {
+        let rm = td.root_moves.remove(best_index);
+        td.root_moves.insert(0, rm);
+    }
 }
 
 fn search<NODE: NodeType>(

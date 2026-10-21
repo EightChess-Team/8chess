@@ -17,11 +17,11 @@ Everything below is asserted in code and continuously verified by
 ## 1. Architecture
 
 ```
-piece features (10 x 768)  ──┐
-                             ├──> feature transformer (768) ──> clipped-pair
-threat features (66864)    ──┘                                  activation (768)
-                                                                      │
-                                              input-clipped affine (768 -> 16)  x 8 output buckets
+piece features (10 x 768)   ──┐
+                              ├──> feature transformer (1024) ──> clipped-pair
+threat features (66864)     ──┘                                   activation (1024)
+                                                                       │
+                                               input-clipped affine (1024 -> 16)  x 8 output buckets
                                                                       │
                                                          affine (16 -> 32) x 8 buckets
                                                                       │
@@ -30,7 +30,7 @@ threat features (66864)    ──┘                                  activation
                                                        score = output * 380
 ```
 
-* Feature transformer output: 768 (`L1_SIZE`), two halves of 384.
+* Feature transformer output: 1024 (`L1_SIZE`), two halves of 512.
 * Input buckets: 10, selected by the POV king square (layout below).
 * Threat features: **not** input-bucketed (shared weights across king zones).
 * Output buckets: 8, selected by total piece count.
@@ -116,10 +116,10 @@ Activation (per side-to-move flip):
 
 ```
 s     = wrap16(pst[pov] + threat[pov])              # same wrap
-lhs   = clamp(s[0:384],   0, 255)
-rhs   = min(s[384:768], 255)                        # may be negative
+lhs   = clamp(s[0:512],   0, 255)
+rhs   = min(s[512:1024], 255)                       # may be negative
 byte  = saturate_u8(floor(lhs * rhs / 512))          # packus semantics
-ft_out[flip*384 ..] = byte
+ft_out[flip*512 ..] = byte
 ```
 
 L1 layer (bucket `b` from piece count):
@@ -169,24 +169,24 @@ keep them within `[-0.498, 0.498]` (the exporter clamps).
 
 ## 5. Binary layout
 
-The file is exactly **63,266,880 bytes** (compile-time asserted in
+The file is exactly **84,349,504 bytes** (compile-time asserted in
 `src/nnue.rs`). All offsets are multiples of 64 (fields are `repr(align(64))`).
 Little-endian throughout.
 
 | Offset      | Size      | Type     | Shape                 | Name                |
 | ----------- | --------- | -------- | --------------------- | ------------------- |
-| 0           | 51,351,552 | `i8`    | `[66864][768]`        | `ft_threat_weights` |
-| 51,351,552  | 11,796,480 | `i16`   | `[7680][768]`         | `ft_piece_weights`  |
-| 63,148,032  | 1,536     | `i16`    | `[768]`               | `ft_biases`         |
-| 63,149,568  | 98,304    | `i8`     | `[8][16*768]`         | `l1_weights`        |
-| 63,247,872  | 512       | `f32`    | `[8][16]`             | `l1_biases`         |
-| 63,248,384  | 16,384    | `f32`    | `[8][16][32]`         | `l2_weights`        |
-| 63,264,768  | 1,024     | `f32`    | `[8][32]`             | `l2_biases`         |
-| 63,265,792  | 1,024     | `f32`    | `[8][32]`             | `l3_weights`        |
-| 63,266,816  | 32 (+32 pad) | `f32` | `[8]`                 | `l3_biases`         |
+| 0           | 68,468,736 | `i8`    | `[66864][1024]`       | `ft_threat_weights` |
+| 68,468,736  | 15,728,640 | `i16`   | `[7680][1024]`        | `ft_piece_weights`  |
+| 84,197,376  | 2,048     | `i16`    | `[1024]`              | `ft_biases`         |
+| 84,199,424  | 131,072   | `i8`     | `[8][16*1024]`        | `l1_weights`        |
+| 84,330,496  | 512       | `f32`    | `[8][16]`             | `l1_biases`         |
+| 84,331,008  | 16,384    | `f32`    | `[8][16][32]`         | `l2_weights`        |
+| 84,347,392  | 1,024     | `f32`    | `[8][32]`             | `l2_biases`         |
+| 84,348,416  | 1,024     | `f32`    | `[8][32]`             | `l3_weights`        |
+| 84,349,440  | 32 (+32 pad) | `f32` | `[8]`                 | `l3_biases`         |
 
 `l1_weights` layout: `w[(chunk * 16 + output) * 4 + k]` where `chunk` is the
-4-byte input chunk index (`0..192`).
+4-byte input chunk index (`0..256`).
 
 ## 6. Compatibility checks implemented
 
@@ -196,4 +196,4 @@ Little-endian throughout.
 * `training/eightchess_nnue/export.py` performs an end-to-end round trip:
   floats → quantized ints → binary → parse back → quantized forward, and
   reports the quantization error.
-* The engine rejects files whose size differs from 63,266,880 bytes.
+* The engine rejects files whose size differs from 84,349,504 bytes.
