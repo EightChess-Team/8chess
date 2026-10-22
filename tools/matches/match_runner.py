@@ -14,6 +14,7 @@ import argparse
 import math
 import os
 import random
+import shutil
 import sys
 import threading
 import time
@@ -109,20 +110,21 @@ def play_game(
     game.headers["FEN"] = fen
     game.setup(board)
 
-    # Initialize engines
-    white_eng = chess.engine.SimpleEngine.popen_uci(white_path)
-    black_eng = chess.engine.SimpleEngine.popen_uci(black_path)
-
-    for k, v in white_opt.items():
-        white_eng.configure({k: v})
-    for k, v in black_opt.items():
-        black_eng.configure({k: v})
-
+    white_eng = None
+    black_eng = None
     wtime = base_time
     btime = base_time
 
     node = game
     try:
+        white_eng = chess.engine.SimpleEngine.popen_uci(white_path)
+        black_eng = chess.engine.SimpleEngine.popen_uci(black_path)
+
+        for k, v in white_opt.items():
+            white_eng.configure({k: v})
+        for k, v in black_opt.items():
+            black_eng.configure({k: v})
+
         while not board.is_game_over(claim_draw=True) and board.fullmove_number <= max_moves:
             eng = white_eng if board.turn == chess.WHITE else black_eng
             t0 = time.time()
@@ -155,14 +157,12 @@ def play_game(
             game.headers["Termination"] = "MAX_MOVES_EXCEEDED"
 
     finally:
-        try:
-            white_eng.quit()
-        except Exception:
-            pass
-        try:
-            black_eng.quit()
-        except Exception:
-            pass
+        for eng in (white_eng, black_eng):
+            if eng is not None:
+                try:
+                    eng.quit()
+                except Exception:
+                    pass
 
     return game
 
@@ -182,6 +182,13 @@ def main() -> int:
     parser.add_argument("--no-book", action="store_true", help="play pure startpos with zero opening books")
     parser.add_argument("--pgn", default="matches.pgn", help="output PGN file")
     args = parser.parse_args()
+
+    for label, path in (("engine1", args.engine1), ("engine2", args.engine2)):
+        resolved = shutil.which(path)
+        if resolved is None:
+            parser.error(f"{label} executable not found: {path}")
+        if not os.access(resolved, os.X_OK):
+            parser.error(f"{label} is not executable: {resolved}")
 
     base_time, inc_time = parse_tc(args.tc)
 

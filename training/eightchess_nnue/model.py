@@ -54,7 +54,9 @@ def _pair_activation(acc: torch.Tensor) -> torch.Tensor:
     act = acc.clamp(0.0, 1.0)
     left = act[:, :_HALF]
     right = act[:, _HALF:]
-    return torch.floor(left * right * 512.0) / 512.0
+    prod = left * right
+    q = torch.floor(prod * 512.0) / 512.0
+    return prod + (q - prod).detach()
 
 
 class EightChessNNUE(nn.Module):

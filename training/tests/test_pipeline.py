@@ -73,8 +73,8 @@ def main():
 
     exported_nnue = os.path.join(ckpt_dir, "epoch_2.nnue")
     assert os.path.exists(exported_nnue), f"Missing exported nnue: {exported_nnue}"
-    assert os.path.getsize(exported_nnue) == 63266880, f"Incorrect size: {os.path.getsize(exported_nnue)}"
-    print(f"\n4. Exported network verified: {exported_nnue} (63,266,880 bytes)")
+    assert os.path.getsize(exported_nnue) == 84349504, f"Incorrect size: {os.path.getsize(exported_nnue)}"
+    print(f"\n4. Exported network verified: {exported_nnue} (84,349,504 bytes)")
 
     print("\n5. Verifying engine compatibility and bit-exact evaluation on the exported network...")
     engine_bin = os.path.abspath("target/release/eightchess")

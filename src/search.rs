@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicI32, Ordering};
 
-pub static CONTEMPT: AtomicI32 = AtomicI32::new(8);
+pub static CONTEMPT: AtomicI32 = AtomicI32::new(0);
 pub static SHARPNESS: AtomicI32 = AtomicI32::new(0);
 
 use crate::{
@@ -155,7 +155,7 @@ pub fn start(td: &mut ThreadData, report: Report, thread_count: usize) {
                     s if s <= alpha => {
                         alpha = (score - delta).max(-Score::INFINITE);
                         beta = (alpha + delta).min(beta);
-                        delta += delta / 2;
+                        delta += 26 * delta / 128;
                     }
                     s if s >= beta => {
                         alpha = (beta - delta).max(alpha);
@@ -263,7 +263,7 @@ pub fn start(td: &mut ThreadData, report: Report, thread_count: usize) {
 
             let score_trend = {
                 let difference = (td.previous_best_score - td.root_moves[0].score) as f32;
-                (0.7426 + 0.0480 * difference).clamp(0.6500, 2.2500)
+                (0.7426 + 0.0480 * difference).clamp(0.7214, 1.4031)
             };
 
             let pv_stability = (1.2881 - 0.0440 * pv_stability as f32).max(0.7160);
@@ -810,7 +810,7 @@ fn search<NODE: NodeType>(
         }
         // Negative Extensions
         else if tt_score >= beta || cut_node {
-            extension = -2;
+            extension = -3;
         }
     }
     // Low Depth Singular Extensions (LDSE)
@@ -922,7 +922,7 @@ fn search<NODE: NodeType>(
 
         // Late Move Reductions (LMR)
         if depth >= 2 && move_count >= 2 {
-            let mut reduction = 240 * depth.ilog2() as i32 + 310 * move_count.ilog2() as i32;
+            let mut reduction = 269 * depth.ilog2() as i32;
 
             reduction -= (425 * improvement / 128).clamp(-241, 1155);
             reduction -= 3417 * correction_value.abs() / 1024;
@@ -938,8 +938,7 @@ fn search<NODE: NodeType>(
                 reduction -= 179 * history / 1024;
                 reduction += 418 * ((alpha - estimated_score).clamp(-65, 91)) / 128;
             } else {
-                let good_see = td.board.see(mv, 0);
-                reduction += if good_see { 720 } else { 1850 };
+                reduction += 1687;
                 reduction -= 130 * history / 1024;
             }
 
@@ -1394,8 +1393,8 @@ fn qsearch<NODE: NodeType>(td: &mut ThreadData, mut alpha: i32, beta: i32, ply: 
         };
 
         if !is_loss(best_score) {
-            // Late Move Pruning (LMP) in Qsearch
-            if move_count >= 5 && !td.board.is_direct_check(mv) && !td.board.see(mv, 0) {
+            // Late Move Pruning (LMP)
+            if move_count >= 3 && !td.board.is_direct_check(mv) {
                 break;
             }
 

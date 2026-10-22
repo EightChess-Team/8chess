@@ -126,6 +126,8 @@ def main() -> int:
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=4096)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--ft-lr-scale", type=float, default=None, help="LR multiplier for FT parameters")
+    parser.add_argument("--freeze-base-ft", action="store_true", help="freeze original 768 FT channels (0..384, 512..896)")
     parser.add_argument("--temperature", type=float, default=173.72)
     parser.add_argument("--export-every", type=int, default=1, help="export .nnue every N epochs")
     parser.add_argument("--device", default="auto", help="cuda, cpu, or auto")
@@ -157,9 +159,17 @@ def main() -> int:
     else:
         model = EightChessNNUE().to(device)
 
-    optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
+    ft_lr_scale = args.ft_lr_scale if args.ft_lr_scale is not None else (0.1 if args.base else 1.0)
+    ft_params = [model.ft_piece.weight, model.ft_threat.weight, model.ft_bias]
+    head_params = [model.l1_weight, model.l1_bias, model.l2_weight, model.l2_bias, model.l3_weight, model.l3_bias]
+    optimizer = AdamW(
+        [
+            {"params": ft_params, "lr": args.lr * ft_lr_scale, "weight_decay": 0.0},
+            {"params": head_params, "lr": args.lr, "weight_decay": 1e-5},
+        ]
+    )
     total_steps = (train_dataset.size // args.batch_size + 1) * args.epochs
-    scheduler = CosineAnnealingLR(optimizer, T_max=total_steps, eta_min=1e-5)
+    scheduler = CosineAnnealingLR(optimizer, T_max=total_steps, eta_min=1e-6)
 
     print(f"Starting training: {args.epochs} epochs, batch size {args.batch_size}, {total_steps} steps total")
 
@@ -193,6 +203,15 @@ def main() -> int:
             loss = F.binary_cross_entropy(pred, batch["targets"])
 
             loss.backward()
+            if args.freeze_base_ft:
+                with torch.no_grad():
+                    for p in (model.ft_piece.weight, model.ft_threat.weight):
+                        if p.grad is not None:
+                            p.grad[:, :384] = 0.0
+                            p.grad[:, 512:896] = 0.0
+                    if model.ft_bias.grad is not None:
+                        model.ft_bias.grad[:384] = 0.0
+                        model.ft_bias.grad[512:896] = 0.0
             optimizer.step()
             scheduler.step()
 

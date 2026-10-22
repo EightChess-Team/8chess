@@ -18,8 +18,7 @@ impl Score {
 }
 
 pub fn draw(td: &ThreadData) -> i32 {
-    let optimism = td.optimism[td.board.side_to_move()];
-    -optimism + ((td.nodes() % 5) as i32 - 2)
+    (td.nodes() % 5) as i32 - 2
 }
 
 pub const fn mated_in(ply: isize) -> i32 {

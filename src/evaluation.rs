@@ -5,8 +5,7 @@ pub fn correct_eval(td: &ThreadData, raw_eval: i32, correction_value: i32) -> i3
         + td.optimism[td.board.side_to_move()] * (1548 + td.board.material()))
         / 27015;
 
-    let fifty = (td.board.fiftymove_clock() as i32).min(100);
-    eval = eval * (100 - fifty) / 100;
+    eval = eval * (200 - td.board.fiftymove_clock() as i32) / 200;
 
     eval += correction_value;
 
