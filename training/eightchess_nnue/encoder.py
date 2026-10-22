@@ -59,7 +59,7 @@ def encode_fens(
     """
     assert len(fens) == len(results)
     n = len(fens)
-    streams: list[list[list[int]]] = [[], [], [], []]
+    streams: list[list[list[int]]] = [[[] for _ in range(n)] for _ in range(4)]
     buckets = np.empty(n, dtype=np.uint8)
     targets = np.empty(n, dtype=np.float32)
 
@@ -69,7 +69,7 @@ def encode_fens(
             _encode_fen_worker, args, chunksize=chunk
         ):
             for s in range(4):
-                streams[s].append(feats[s])
+                streams[s][index] = feats[s]
             buckets[index] = bucket
             targets[index] = target
 
@@ -117,7 +117,7 @@ def encode_fens_scored(
     """
     assert len(fens) == len(scores) == len(results)
     n = len(fens)
-    streams: list[list[list[int]]] = [[], [], [], []]
+    streams: list[list[list[int]]] = [[[] for _ in range(n)] for _ in range(4)]
     buckets = np.empty(n, dtype=np.uint8)
     targets = np.empty(n, dtype=np.float32)
 
@@ -127,7 +127,7 @@ def encode_fens_scored(
             _encode_fen_scored_worker, args, chunksize=chunk
         ):
             for s in range(4):
-                streams[s].append(feats[s])
+                streams[s][index] = feats[s]
             buckets[index] = bucket
             clipped = max(-2000, min(2000, score))
             eval_wdl = 1.0 / (1.0 + math.exp(-clipped / scaling))
