@@ -1,144 +1,122 @@
-name: Reckless Releases
+name: 8Chess Releases
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
 
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Build for ${{ matrix.name }}
+    name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            name: reckless-linux-generic
+          - name: linux-x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
             rustflags: "-C target-cpu=x86-64"
-
-          - os: ubuntu-latest
-            name: reckless-linux-avx2
-            rustflags: "-C target-cpu=x86-64-v3"
-            sde_flag: -bdw
-
-          - os: ubuntu-latest
-            name: reckless-linux-avx512
-            rustflags: "-C target-cpu=x86-64-v4 -C target-feature=+gfni,+avx512bw,+avx512vl,+avx512vbmi,+avx512vbmi2,+avx512vnni,+avx512bitalg"
-            sde_flag: -icx
-
-          - os: windows-latest
-            name: reckless-windows-generic
+            archive: tar.gz
+          - name: linux-aarch64
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            rustflags: "-C target-cpu=generic"
+            archive: tar.gz
+          - name: macos-x86_64
+            os: macos-13
+            target: x86_64-apple-darwin
             rustflags: "-C target-cpu=x86-64"
-
-          - os: windows-latest
-            name: reckless-windows-avx2
-            rustflags: "-C target-cpu=x86-64-v3"
-            sde_flag: -bdw
-
-          - os: windows-latest
-            name: reckless-windows-avx512
-            rustflags: "-C target-cpu=x86-64-v4 -C target-feature=+gfni,+avx512bw,+avx512vl,+avx512vbmi,+avx512vbmi2,+avx512vnni,+avx512bitalg"
-            sde_flag: -icx
-
-          - os: macos-latest
-            name: reckless-macos
-            rustflags: "-C target-cpu=native"
+            archive: tar.gz
+          - name: macos-aarch64
+            os: macos-14
+            target: aarch64-apple-darwin
+            rustflags: "-C target-cpu=generic"
+            archive: tar.gz
+          - name: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            rustflags: "-C target-cpu=x86-64"
+            archive: zip
+          - name: windows-aarch64
+            os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            rustflags: "-C target-cpu=generic"
+            archive: zip
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@1.93.1
-
-      - name: Install dependencies
-        run: |
-          rustup component add llvm-tools
-          cargo install cargo-pgo
-
-      - name: Setup Intel SDE
-        if: matrix.name != 'reckless-macos' && matrix.name != 'reckless-linux-generic' && matrix.name != 'reckless-windows-generic'
-        uses: petarpetrovt/setup-sde@v5.0
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          sdeVersion: "9.58.0"
-          environmentVariableName: SDE_PATH
+          targets: ${{ matrix.target }}
 
-      - name: Instrument build for PGO
-        run: |
-          cargo pgo instrument
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
-
-      - name: Run PGO profiling benchmarks
-        if: matrix.name == 'reckless-linux-avx2' || matrix.name == 'reckless-linux-avx512'
-        run: |
-          "$SDE_PATH/sde64" ${{ matrix.sde_flag }} -- cargo pgo run -- bench
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
-
-      - name: Run PGO profiling benchmarks
-        if: matrix.name == 'reckless-windows-avx2' || matrix.name == 'reckless-windows-avx512'
-        shell: cmd
-        run: |
-          "%SDE_PATH%\sde.exe" ${{ matrix.sde_flag }} -- cargo pgo run -- bench
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
-
-      - name: Run PGO profiling benchmarks
-        if: matrix.name == 'reckless-macos' || matrix.name == 'reckless-linux-generic' || matrix.name == 'reckless-windows-generic'
-        run: |
-          cargo pgo run -- bench
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
-
-      - name: Optimize build with PGO
-        run: |
-          cargo pgo optimize
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
-
-      - name: Rename binary with platform suffix
+      - name: Build
         shell: bash
-        run: |
-          tuple=$(rustc --print host-tuple)
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            mv target\\$tuple\\release\\reckless.exe ${{ matrix.name }}.exe
-          else
-            mv target/$tuple/release/reckless ${{ matrix.name }}
-          fi
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+          TARGET: ${{ matrix.target }}
+        run: cargo build --release --target "$TARGET"
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v5.0.0
+      - name: Package Unix binary
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          ASSET: ${{ matrix.name }}
+        run: |
+          mkdir -p package
+          cp "target/$TARGET/release/eightchess" package/eightchess
+          tar -C package -czf "$ASSET.tar.gz" eightchess
+          sha256sum "$ASSET.tar.gz" > "$ASSET.tar.gz.sha256"
+
+      - name: Package Windows binary
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        env:
+          TARGET: ${{ matrix.target }}
+          ASSET: ${{ matrix.name }}
+        run: |
+          New-Item -ItemType Directory -Force package | Out-Null
+          Copy-Item "target/$env:TARGET/release/eightchess.exe" package/eightchess.exe
+          Compress-Archive -Path package/eightchess.exe -DestinationPath "$env:ASSET.zip"
+          (Get-FileHash "$env:ASSET.zip" -Algorithm SHA256).Hash.ToLower() + "  $env:ASSET.zip" | Set-Content "$env:ASSET.zip.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
           path: |
-            ${{ matrix.name }}
-            ${{ matrix.name }}.exe
-          retention-days: 1
+            *.tar.gz
+            *.tar.gz.sha256
+            *.zip
+            *.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
 
   release:
-    name: Development release
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Get short SHA hash
-        id: hash
-        run: echo "COMMIT_SHA=$(git rev-parse HEAD | cut -c 1-8)" >> $GITHUB_ENV
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v6.0.0
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2.4.1
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
         with:
-          name: Reckless 0.9.0-dev-${{ env.COMMIT_SHA }}
-          draft: true
-          prerelease: true
-          files: artifacts/**/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: true
+          files: artifacts/*

@@ -8,13 +8,10 @@ there are no runtime model files.
 ## Status
 
 - 1024-wide threat + piece NNUE, 10 input buckets / 8 output buckets.
-- Current embedded network: `eightchess_1024_master.nnue`, a fine-tune on
-  968,660 SF/Lc0-labelled positions.
-- Match record vs Stockfish 19 (no opening book, `1.0+0.01`):
-  - 100 games: 51.0%
-  - 500 games: 47.3% (+57 =359 -84, -18.8 +/- 16.2 Elo)
-- Goal: beat Stockfish 19 in a 60,000-game no-book match with zero Stockfish
-  wins.
+- Current embedded network: `eightchess_1024_tuned768.nnue`.
+- Direct match record vs Stockfish 19 (no opening book, `1.0+0.01`):
+  - 1,000 games: 67.75% (+487 =381 -132, +129 +/- 17 Elo)
+- Goal: continue improving the engine against Stockfish 19 in long no-book matches.
 
 ## Build
 
@@ -22,8 +19,8 @@ there are no runtime model files.
 cargo build --release
 ```
 
-`build/build.rs` downloads the current network from the network release if
-`networks/eightchess_1024_master.nnue` is missing. Override with `EVALFILE` or
+`build/build.rs` downloads the embedded network from the network release if
+`networks/eightchess_1024_tuned768.nnue` is missing. Override with `EVALFILE` or
 place a compatible `.nnue` in `networks/`.
 
 The resulting executable is `target/release/eightchess`. It supports the
@@ -54,7 +51,7 @@ python3 tools/data/eval_fens_sf.py --fens data/fens.txt --out data/sf.tsv \
 python3 tools/data/build_hq25.py --help
 PYTHONPATH=training python3 -m eightchess_nnue.train --help
 PYTHONPATH=training python3 -m eightchess_nnue.verify_engine \
-  --engine target/release/eightchess --network networks/eightchess_1024_master.nnue --count 100
+  --engine target/release/eightchess --network networks/eightchess_1024_tuned768.nnue --count 100
 python3 tools/matches/match_runner.py --help
 ```
 
