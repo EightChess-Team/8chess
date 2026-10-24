@@ -39,9 +39,9 @@ wasm: ## Build the WebAssembly target
 	RUSTFLAGS= rustup run nightly \
 		cargo build -Z build-std=panic_abort,std \
 		--lib --target wasm32-unknown-unknown --release --no-default-features
-	wasm-bindgen target/wasm32-unknown-unknown/release/reckless.wasm --target web --out-dir pkg
+	wasm-bindgen target/wasm32-unknown-unknown/release/eightchess.wasm --target web --out-dir pkg
 	wasm-opt -O3 --enable-simd --enable-threads --enable-relaxed-simd \
-		pkg/reckless_bg.wasm -o pkg/reckless_bg.wasm
+		pkg/eightchess_bg.wasm -o pkg/eightchess_bg.wasm
 
 x64-check: ## Check compilation for x86-64 v1-v4
 	RUSTFLAGS="-C target-cpu=x86-64" cargo check --target x86_64-unknown-linux-gnu --no-default-features
