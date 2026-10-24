@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="8Chess is an open-source chess engine with an embedded 1024-wide NNUE network.">
+  <title>8Chess — Open-source chess engine</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="8Chess home">8<span>Chess</span></a>
+    <nav aria-label="Main navigation">
+      <a href="#download">Download</a>
+      <a href="#benchmark">Benchmark</a>
+      <a href="#use">Use it</a>
+      <a href="https://github.com/EightChess-Team/8chess">Source</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Open-source chess engine</p>
+        <h1>Small binary.<br><em>Serious chess.</em></h1>
+        <p class="lead">8Chess is a self-contained Rust chess engine with a tuned 1024-wide NNUE network baked directly into the binary.</p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/EightChess-Team/8chess/releases/latest">Download latest release</a>
+          <a class="button secondary" href="https://github.com/EightChess-Team/8chess">View source</a>
+        </div>
+      </div>
+      <div class="board-mark" aria-hidden="true">
+        <div class="board">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="knight">♞</div>
+      </div>
+    </section>
+
+    <section class="stats" id="benchmark">
+      <div><strong>67.75%</strong><span>score vs Stockfish 19</span></div>
+      <div><strong>+129</strong><span>estimated Elo</span></div>
+      <div><strong>1,000</strong><span>direct UCI games</span></div>
+      <div><strong>0</strong><span>opening books</span></div>
+    </section>
+
+    <section class="section" id="download">
+      <div class="section-heading">
+        <p class="eyebrow">Ready to play</p>
+        <h2>One release. Every machine.</h2>
+        <p>Download the self-contained engine for your platform. SHA256 checksums are included with every asset.</p>
+      </div>
+      <div class="download-grid">
+        <a class="download-card" href="https://github.com/EightChess-Team/8chess/releases/latest">
+          <span class="platform">Linux</span>
+          <strong>x86_64 · ARM64 · RISC-V</strong>
+          <small>Generic and optimized builds</small>
+          <span class="arrow">↗</span>
+        </a>
+        <a class="download-card" href="https://github.com/EightChess-Team/8chess/releases/latest">
+          <span class="platform">macOS</span>
+          <strong>Intel + Apple Silicon</strong>
+          <small>Universal binary</small>
+          <span class="arrow">↗</span>
+        </a>
+        <a class="download-card" href="https://github.com/EightChess-Team/8chess/releases/latest">
+          <span class="platform">Windows</span>
+          <strong>x86_64 · ARM64</strong>
+          <small>Generic and optimized builds</small>
+          <span class="arrow">↗</span>
+        </a>
+        <a class="download-card" href="https://github.com/EightChess-Team/8chess/releases/latest">
+          <span class="platform">Android</span>
+          <strong>ARM64 · ARMv7</strong>
+          <small>Standalone engine packages</small>
+          <span class="arrow">↗</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="split-section" id="use">
+      <div>
+        <p class="eyebrow">Get started</p>
+        <h2>Works with any UCI-compatible GUI.</h2>
+        <p>Add the downloaded executable as a chess engine in your favorite GUI. 8Chess requires no network file at runtime—the NNUE is already embedded.</p>
+        <a class="text-link" href="https://github.com/EightChess-Team/8chess/releases">Browse releases <span>→</span></a>
+      </div>
+      <div class="code-card">
+        <div class="code-top"><span></span><span></span><span></span><label>terminal</label></div>
+        <pre><code><i>$</i> ./eightchess
+&gt; uci
+id name 8Chess 1.0
+option name Threads ...
+option name EvalFile ...
+&gt; isready
+readyok</code></pre>
+      </div>
+    </section>
+
+    <section class="evidence">
+      <div>
+        <p class="eyebrow">Transparent testing</p>
+        <h2>See every game.</h2>
+      </div>
+      <p>The published match records use direct UCI communication, a Rust referee, no opening book, and reproducible PGN output.</p>
+      <a class="button secondary" href="https://github.com/EightChess-Team/8chess/tree/publish/direct-match-results/results">Read the PGNs</a>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 8Chess Team</span>
+    <span><a href="https://github.com/EightChess-Team/8chess">GitHub</a> · <a href="https://github.com/EightChess-Team/8chess/blob/main/LICENSE">AGPL-3.0</a></span>
+  </footer>
+</body>
+</html>
