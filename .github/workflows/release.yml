@@ -267,10 +267,52 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  wasm:
+    name: Build WebAssembly
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          lfs: true
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: wasm32-unknown-unknown
+          components: rust-src
+
+      - name: Install wasm-bindgen
+        run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
+
+      - name: Install wasm-opt
+        shell: bash
+        run: |
+          curl -fsSL https://github.com/WebAssembly/binaryen/releases/download/version_130/binaryen-version_130-x86_64-linux.tar.gz | tar xz
+          echo "$PWD/binaryen-version_130/bin" >> "$GITHUB_PATH"
+
+      - name: Build WASM package
+        run: make wasm
+
+      - name: Package WASM
+        run: |
+          tar -C pkg -czf wasm-web.tar.gz .
+          sha256sum wasm-web.tar.gz > wasm-web.tar.gz.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-web
+          path: |
+            wasm-web.tar.gz
+            wasm-web.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7
+
   release:
     name: Publish release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, macos-universal]
+    needs: [build, macos-universal, wasm]
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
