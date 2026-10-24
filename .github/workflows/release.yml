@@ -61,7 +61,8 @@ jobs:
             os: ubuntu-latest
             target: loongarch64-unknown-linux-gnu
             rustflags: "-C target-cpu=loongarch64"
-            builder: zig
+            linker: loongarch64-linux-gnu-gcc
+            builder: cross
             features: --no-default-features
             platform: unix
             archive: tar.gz
@@ -168,7 +169,13 @@ jobs:
           RUSTFLAGS: ${{ matrix.rustflags }}
           TARGET: ${{ matrix.target }}
           FEATURES: ${{ matrix.features }}
-        run: cross build --release --target "$TARGET" $FEATURES
+          LINKER: ${{ matrix.linker }}
+        run: |
+          if [ -n "$LINKER" ]; then
+            CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_GNU_LINKER="$LINKER" cross build --release --target "$TARGET" $FEATURES
+          else
+            cross build --release --target "$TARGET" $FEATURES
+          fi
 
       - name: Build Zig target
         if: matrix.builder == 'zig'
