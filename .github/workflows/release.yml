@@ -62,7 +62,7 @@ jobs:
             target: loongarch64-unknown-linux-gnu
             rustflags: "-C target-cpu=generic"
             linker: loongarch64-unknown-linux-gnu-gcc
-            builder: cross
+            builder: zig
             features: --no-default-features
             platform: unix
             archive: tar.gz
@@ -128,6 +128,16 @@ jobs:
         if: matrix.builder == 'cross'
         run: cargo install cross --locked
 
+      - name: Install Zig
+        if: matrix.builder == 'zig'
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
+
+      - name: Install cargo-zigbuild
+        if: matrix.builder == 'zig'
+        run: cargo install cargo-zigbuild --locked
+
       - name: Setup Android
         if: matrix.builder == 'android'
         uses: android-actions/setup-android@v4
@@ -159,13 +169,16 @@ jobs:
           RUSTFLAGS: ${{ matrix.rustflags }}
           TARGET: ${{ matrix.target }}
           FEATURES: ${{ matrix.features }}
-          LINKER: ${{ matrix.linker }}
-        run: |
-          if [ -n "$LINKER" ]; then
-            CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_GNU_LINKER="$LINKER" cross build --release --target "$TARGET" $FEATURES
-          else
-            cross build --release --target "$TARGET" $FEATURES
-          fi
+        run: cross build --release --target "$TARGET" $FEATURES
+
+      - name: Build Zig target
+        if: matrix.builder == 'zig'
+        shell: bash
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+          TARGET: ${{ matrix.target }}
+          FEATURES: ${{ matrix.features }}
+        run: cargo zigbuild --release --target "$TARGET" $FEATURES
 
       - name: Build Android target
         if: matrix.builder == 'android'
