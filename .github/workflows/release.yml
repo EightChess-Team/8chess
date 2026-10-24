@@ -60,7 +60,7 @@ jobs:
           - name: linux-loongarch64
             os: ubuntu-latest
             target: loongarch64-unknown-linux-gnu
-            rustflags: "-C target-cpu=generic"
+            rustflags: "-C target-cpu=generic -C linker=loongarch64-linux-gnu-gcc"
             builder: cross
             features: --no-default-features
             platform: unix
@@ -129,7 +129,9 @@ jobs:
 
       - name: Setup Android
         if: matrix.builder == 'android'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
 
       - name: Install Android NDK
         if: matrix.builder == 'android'
