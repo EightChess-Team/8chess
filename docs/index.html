@@ -3,13 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="8Chess is an open-source chess engine with an embedded 1024-wide NNUE network.">
+  <meta name="description" content="8Chess is an open-source chess engine with an embedded 1024-wide NNUE network — play it in your browser, powered by volunteer CPUs.">
+  <meta property="og:title" content="8Chess — Open-source chess engine">
+  <meta property="og:description" content="Small binary. Serious chess. Play the 67.75%-vs-Stockfish engine online, powered by volunteer CPUs.">
   <title>8Chess — Open-source chess engine</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="./" aria-label="8Chess home">8<span>Chess</span></a>
+    <a class="brand" href="./" aria-label="8Chess home">
+      <img src="logo.svg" alt="" width="34" height="34">
+      <span>8Chess</span>
+    </a>
     <nav aria-label="Main navigation">
       <a class="play-pill play-link" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">Play</a>
       <a href="#download">Download</a>
@@ -33,17 +39,13 @@
       </div>
       <div class="board-mark" aria-hidden="true">
         <div class="board">
-          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <span class="bp b" style="left:0;top:0">♜</span><span class="bp b" style="left:12.5%;top:0">♞</span><span class="bp b" style="left:25%;top:0">♝</span><span class="bp b" style="left:37.5%;top:0">♛</span><span class="bp b" style="left:50%;top:0">♚</span><span class="bp b" style="left:62.5%;top:0">♝</span><span class="bp b" style="left:75%;top:0">♞</span><span class="bp b" style="left:87.5%;top:0">♜</span>
+          <span class="bp b" style="left:0;top:12.5%">♟</span><span class="bp b" style="left:12.5%;top:12.5%">♟</span><span class="bp b" style="left:37.5%;top:12.5%">♟</span><span class="bp b" style="left:50%;top:12.5%">♟</span><span class="bp b" style="left:62.5%;top:12.5%">♟</span><span class="bp b" style="left:75%;top:12.5%">♟</span><span class="bp b" style="left:87.5%;top:12.5%">♟</span>
+          <span class="bp b" style="left:25%;top:37.5%">♟</span>
+          <span class="bp w" style="left:50%;top:50%">♙</span>
+          <span class="bp w" style="left:0;top:75%">♙</span><span class="bp w" style="left:12.5%;top:75%">♙</span><span class="bp w" style="left:25%;top:75%">♙</span><span class="bp w" style="left:37.5%;top:75%">♙</span><span class="bp w" style="left:62.5%;top:75%">♙</span><span class="bp w" style="left:75%;top:75%">♙</span><span class="bp w" style="left:87.5%;top:75%">♙</span>
+          <span class="bp w" style="left:0;top:87.5%">♖</span><span class="bp w" style="left:12.5%;top:87.5%">♘</span><span class="bp w" style="left:25%;top:87.5%">♗</span><span class="bp w" style="left:37.5%;top:87.5%">♕</span><span class="bp w" style="left:50%;top:87.5%">♔</span><span class="bp w" style="left:62.5%;top:87.5%">♗</span><span class="bp w" style="left:75%;top:87.5%">♘</span><span class="bp w" style="left:87.5%;top:87.5%">♖</span>
         </div>
-        <div class="knight">♞</div>
       </div>
     </section>
 
@@ -59,6 +61,7 @@
         <p class="eyebrow">No install needed</p>
         <h2>Play 8Chess right in your browser.</h2>
         <p>CpuPlay runs the engine live against you, and the moves are computed by volunteer donor CPUs from around the world. Create a free account, pick your side, and play. You can even lend your own idle cores and see your name on the live donor leaderboard.</p>
+        <div class="netstats" id="netStats"><span class="nchip">connecting…</span></div>
       </div>
       <div class="play-grid">
         <a class="download-card play-link" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">
@@ -140,21 +143,42 @@ readyok</code></pre>
   </main>
 
   <footer>
-    <span>© 8Chess Team</span>
-    <span><a href="https://github.com/EightChess-Team/8chess">GitHub</a> · <a href="https://github.com/EightChess-Team/8chess/blob/main/LICENSE">AGPL-3.0</a></span>
+    <span>© 2026 8Chess Team · <a href="https://github.com/EightChess-Team">GitHub org</a></span>
+    <span><a href="https://github.com/EightChess-Team/8chess">Engine</a> · <a href="https://github.com/EightChess-Team/cpuplay">CpuPlay</a> · <a href="https://github.com/EightChess-Team/8chess/blob/main/LICENSE">AGPL-3.0</a></span>
   </footer>
 
   <script>
     (async () => {
+      let base = null;
       try {
         const r = await fetch('tunnel.json', { cache: 'no-store' });
         if (r.ok) {
           const j = await r.json();
           if (j && j.url) {
+            base = j.url.replace(/\/$/, '');
             document.querySelectorAll('a.play-link').forEach((a) => { a.href = j.url; });
           }
         }
       } catch (e) { /* keep hardcoded hrefs */ }
+
+      const box = document.getElementById('netStats');
+      if (!box || !base) return;
+      try {
+        const r = await fetch(base + '/api/stats', { cache: 'no-store' });
+        if (!r.ok) throw new Error('stats');
+        const s = await r.json();
+        const online = s.workers_online || 0;
+        const moves = s.volunteer_moves || 0;
+        const games = s.total_games || 0;
+        const donors = (s.top_donors || []).slice(0, 3).map((d) => d.name);
+        box.innerHTML =
+          '<span class="nchip on"><i></i>' + online + ' CPU' + (online === 1 ? '' : 's') + ' online</span>' +
+          '<span class="nchip">' + moves.toLocaleString() + ' donor moves</span>' +
+          '<span class="nchip">' + games.toLocaleString() + ' games played</span>' +
+          (donors.length ? '<span class="nchip">top: ' + donors.join(' · ') + '</span>' : '');
+      } catch (e) {
+        box.innerHTML = '<span class="nchip">live stats unavailable</span>';
+      }
     })();
   </script>
 </body>
