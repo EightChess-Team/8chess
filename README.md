@@ -30,6 +30,15 @@ The resulting executable is `target/release/eightchess`. It supports the
 setoption name EvalFile value /path/to/network.nnue
 ```
 
+## CpuPlay: play online, powered by donors
+
+CpuPlay is the open-source web platform for 8Chess: play the engine in
+your browser while volunteer donor CPUs (signed-in, account-gated)
+compute the moves. Includes live donation stats, worker/device
+authorization, and volunteer-powered game review.
+
+- Repo: https://github.com/EightChess-Team/cpuplay
+
 ## Training and data
 
 The training code lives in `training/eightchess_nnue/` (PyTorch). It encodes
