@@ -10,7 +10,8 @@ there are no runtime model files.
 - 1024-wide threat + piece NNUE, 10 input buckets / 8 output buckets.
 - Current embedded network: `eightchess_1024_tuned768.nnue`.
 - Direct match record vs Stockfish 19 (no opening book, `1.0+0.01`):
-  - 1,000 games: 67.75% (+487 =381 -132, +129 +/- 17 Elo)
+  - published PGN, 1,000 games: 59.85% (+391 =415 -194, ~+69 Elo)
+    (`results/direct_defaults_sf_1000.pgn`)
 - Goal: continue improving the engine against Stockfish 19 in long no-book matches.
 
 ## Build
