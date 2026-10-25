@@ -45,7 +45,19 @@ The training code lives in `training/eightchess_nnue/` (PyTorch). It encodes
 positions into the sparse piece/threat feature format, trains soft-target WDL
 heads, and exports the exact binary layout consumed by `src/nnue.rs`.
 
-Data and checkpoints are intentionally not committed:
+Data and checkpoints are intentionally not committed here. The official
+artifacts are published in the **EightChess-Team** organisation on Hugging
+Face (same organisation name as GitHub):
+
+- [EightChess-Team/eightchess-networks](https://huggingface.co/EightChess-Team/eightchess-networks)
+  - all trained NNUE networks (15 unique files, ~1.06 GiB), including the
+  champion `eightchess_1024_tuned768.nnue` embedded in v1.0.10
+- [EightChess-Team/eightchess-data](https://huggingface.co/datasets/EightChess-Team/eightchess-data)
+  - training data, currently `gensfen.binpack` (sfbinpack format)
+
+Each repo ships a `MANIFEST.txt` with the SHA-256 and size of every file.
+
+Local-only paths:
 
 - `data/` - FEN sets, SF/Lc0 labels, encoded `.npz` datasets
 - `checkpoints/` - training checkpoints (`.nnue`, `.pt`)
