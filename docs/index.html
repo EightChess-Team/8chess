@@ -11,11 +11,11 @@
   <header class="site-header">
     <a class="brand" href="./" aria-label="8Chess home">8<span>Chess</span></a>
     <nav aria-label="Main navigation">
+      <a class="play-pill play-link" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">Play</a>
       <a href="#download">Download</a>
       <a href="#benchmark">Benchmark</a>
       <a href="#use">Use it</a>
-      <a href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">Play online</a>
-      <a href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">Donate CPU</a>
+      <a class="play-link" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">Donate CPU</a>
       <a href="https://github.com/EightChess-Team/8chess">Source</a>
     </nav>
   </header>
@@ -27,7 +27,7 @@
         <h1>Small binary.<br><em>Serious chess.</em></h1>
         <p class="lead">8Chess is a self-contained Rust chess engine with a tuned 1024-wide NNUE network baked directly into the binary.</p>
         <div class="actions">
-          <a class="button primary" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">Play 8Chess online</a>
+          <a class="button primary play-link" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">Play online</a>
           <a class="button secondary" href="https://github.com/EightChess-Team/8chess/releases/latest">Download engine</a>
         </div>
       </div>
@@ -52,6 +52,28 @@
       <div><strong>+129</strong><span>estimated Elo</span></div>
       <div><strong>1,000</strong><span>direct UCI games</span></div>
       <div><strong>0</strong><span>opening books</span></div>
+    </section>
+
+    <section class="section" id="play">
+      <div class="section-heading">
+        <p class="eyebrow">No install needed</p>
+        <h2>Play 8Chess right in your browser.</h2>
+        <p>CpuPlay runs the engine live against you, and the moves are computed by volunteer donor CPUs from around the world. Create a free account, pick your side, and play. You can even lend your own idle cores and see your name on the live donor leaderboard.</p>
+      </div>
+      <div class="play-grid">
+        <a class="download-card play-link" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">
+          <span class="platform">CpuPlay</span>
+          <strong>Play online now</strong>
+          <small>Free account · volunteer-powered compute · game review</small>
+          <span class="arrow">↗</span>
+        </a>
+        <a class="download-card play-link" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">
+          <span class="platform">Volunteers</span>
+          <strong>Donate your CPU</strong>
+          <small>One command, one-click approval, no anonymous donors</small>
+          <span class="arrow">↗</span>
+        </a>
+      </div>
     </section>
 
     <section class="section" id="download">
@@ -121,5 +143,19 @@ readyok</code></pre>
     <span>© 8Chess Team</span>
     <span><a href="https://github.com/EightChess-Team/8chess">GitHub</a> · <a href="https://github.com/EightChess-Team/8chess/blob/main/LICENSE">AGPL-3.0</a></span>
   </footer>
+
+  <script>
+    (async () => {
+      try {
+        const r = await fetch('tunnel.json', { cache: 'no-store' });
+        if (r.ok) {
+          const j = await r.json();
+          if (j && j.url) {
+            document.querySelectorAll('a.play-link').forEach((a) => { a.href = j.url; });
+          }
+        }
+      } catch (e) { /* keep hardcoded hrefs */ }
+    })();
+  </script>
 </body>
 </html>

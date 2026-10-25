@@ -33,6 +33,10 @@ h2 { font-size: clamp(36px, 5vw, 58px); }
 .button.primary { color: var(--paper); background: var(--green); }
 .button.primary:hover { background: var(--dark); transform: translateY(-2px); }
 .button.secondary:hover { color: var(--paper); background: var(--green); transform: translateY(-2px); }
+.play-pill { display: inline-block; padding: 7px 14px; color: var(--paper); background: var(--green); font-size: 11px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; border-radius: 999px; transition: .2s ease; }
+.play-pill:hover { background: var(--dark); color: var(--lime); }
+.play-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 45px; }
+.play-grid .download-card { cursor: pointer; }
 .board-mark { position: relative; width: min(390px, 80vw); aspect-ratio: 1; justify-self: center; transform: rotate(-4deg); }
 .board { display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; height: 100%; overflow: hidden; box-shadow: 20px 25px 0 rgba(20,35,31,.08); }
 .board span:nth-child(odd) { background: var(--green); }
@@ -74,7 +78,8 @@ footer a { color: var(--green); font-weight: 700; }
 @media (max-width: 760px) {
   .site-header { padding: 22px 20px; }
   nav { gap: 12px; font-size: 11px; }
-  nav a:nth-child(-n+2) { display: none; }
+  nav a:nth-child(2), nav a:nth-child(3) { display: none; }
+  .play-grid { grid-template-columns: 1fr; }
   .hero { min-height: auto; padding: 65px 20px 80px; grid-template-columns: 1fr; }
   .board-mark { width: min(330px, 82vw); }
   .stats { grid-template-columns: repeat(2, 1fr); padding: 20px; }
