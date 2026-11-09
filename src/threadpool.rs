@@ -19,6 +19,7 @@ use crate::{
     search::{self, Report},
     thread::{RootMove, SharedContext, Status, ThreadData},
     time::TimeManager,
+    types::Move,
 };
 
 pub struct ThreadPool {
@@ -28,7 +29,7 @@ pub struct ThreadPool {
 
 impl ThreadPool {
     pub fn available_threads() -> usize {
-        const MINIMUM_THREADS: usize = 512;
+        const MINIMUM_THREADS: usize = 1;
 
         match std::thread::available_parallelism() {
             Ok(threads) => (4 * threads.get()).max(MINIMUM_THREADS),
@@ -81,7 +82,7 @@ impl ThreadPool {
 
     pub fn execute_searches(
         &mut self, time_manager: TimeManager, report: Report, multi_pv: usize, board: &Board,
-        shared: &Arc<SharedContext>,
+        shared: &Arc<SharedContext>, searchmoves: Option<&[Move]>,
     ) {
         shared.tt.increment_age();
 
@@ -103,8 +104,7 @@ impl ThreadPool {
             {
                 let t1 = &mut self.vector[0];
                 t1.board = (*board).clone();
-                t1.root_moves =
-                    t1.board.generate_all_moves().iter().map(|v| RootMove { mv: v.mv, ..Default::default() }).collect();
+                t1.root_moves = generate_root_moves(&t1.board, searchmoves);
                 t1.multi_pv = multi_pv;
                 t1.time_manager = time_manager.clone();
             }
@@ -156,8 +156,7 @@ impl ThreadPool {
             t1.shared.stop_probing_tb.store(false, Ordering::Relaxed);
 
             t1.board = (*board).clone();
-            t1.root_moves =
-                t1.board.generate_all_moves().iter().map(|v| RootMove { mv: v.mv, ..Default::default() }).collect();
+            t1.root_moves = generate_root_moves(&t1.board, searchmoves);
 
             #[cfg(feature = "syzygy")]
             if t1.board.castling().raw() == 0 && t1.board.occupancies().popcount() <= tb::size() && !t1.board.is_draw(0)
@@ -201,6 +200,20 @@ impl ThreadPool {
             }
         });
     }
+}
+
+fn generate_root_moves(board: &Board, searchmoves: Option<&[Move]>) -> Vec<RootMove> {
+    let mut root_moves = board
+        .generate_all_moves()
+        .iter()
+        .map(|entry| RootMove { mv: entry.mv, ..Default::default() })
+        .collect::<Vec<_>>();
+
+    if let Some(searchmoves) = searchmoves {
+        root_moves.retain(|root_move| searchmoves.contains(&root_move.mv));
+    }
+
+    root_moves
 }
 
 impl Index<usize> for ThreadPool {
