@@ -877,6 +877,38 @@ footer a {
   }
 }
 
+/* News items */
+.news-item {
+  max-width: 760px;
+  padding: 36px 0;
+  border-top: 1px solid var(--line);
+}
+
+.news-item:first-of-type {
+  border-top: 0;
+  padding-top: 12px;
+}
+
+.news-item h2 {
+  margin: 8px 0 6px;
+}
+
+.news-date {
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  margin: 0 0 14px;
+}
+
+.news-item p {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.news-item .actions {
+  margin-top: 18px;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   html {

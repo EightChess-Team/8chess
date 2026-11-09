@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f4f1e9">
+  <meta name="description" content="News and updates from the 8Chess project.">
+  <meta property="og:title" content="8Chess — News">
+  <meta property="og:description" content="Latest news, releases, and updates from the 8Chess project.">
+  <title>8Chess — News</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="8Chess home">
+      <img src="logo.svg" alt="" width="34" height="34">
+      <span>8Chess</span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a class="play-pill play-link" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">Play</a>
+      <a href="./">Home</a>
+      <a href="#news">News</a>
+      <a href="index.html#download">Download</a>
+      <a href="index.html#use">Use it</a>
+      <a class="play-link" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">Donate CPU</a>
+      <a href="https://github.com/EightChess-Team/8chess">Source</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="section" id="news">
+      <div class="section-heading">
+        <p class="eyebrow">Latest updates</p>
+        <h1>News</h1>
+        <p>Releases, beta builds, and project updates from the 8Chess team.</p>
+      </div>
+
+      <article class="news-item">
+        <p class="eyebrow">Beta · Source only</p>
+        <h2>8Chess v2 Beta released</h2>
+        <p class="news-date">November 2026</p>
+        <p>The v2 beta branch is now public on GitHub. It ships the engine correction pass (qsearch, SEE, draw score, time management, FT gradient fix), SIMD/PGO optimization, and the revived 1024-wide NNUE capacity. Beta builds are source-only — there is no release binary yet. Clone the <code>beta</code> branch and compile from scratch with <code>cargo build --release --no-default-features</code>.</p>
+        <p>Training on the v2 net (1B+ positions, 2×T4) is in progress. A full release with binaries will follow once training and match verification complete.</p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/EightChess-Team/8chess/tree/beta">View beta source</a>
+          <a class="button secondary" href="https://github.com/EightChess-Team/8chess/blob/beta/README.md">Build instructions</a>
+        </div>
+      </article>
+
+      <article class="news-item">
+        <p class="eyebrow">Release</p>
+        <h2>8Chess 1.0</h2>
+        <p class="news-date">2026</p>
+        <p>The first public release. Self-contained Rust chess engine with an embedded 1024-wide NNUE network. No runtime network file required. Available for Linux, macOS, Windows, and Android.</p>
+        <div class="actions">
+          <a class="button secondary" href="https://github.com/EightChess-Team/8chess/releases">Browse releases</a>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 8Chess Team · Founded and started by <strong>Hemesh Kasukurthy</strong> ♟ · <a href="https://github.com/EightChess-Team">GitHub org</a> · <a href="https://huggingface.co/EightChess-Team">Hugging Face</a></span>
+    <span><a href="index.html">Home</a> · <a href="https://github.com/EightChess-Team/8chess">Engine</a> · <a href="https://github.com/EightChess-Team/cpuplay">CpuPlay</a> · <a href="https://github.com/EightChess-Team/8chess/blob/main/LICENSE">AGPL-3.0</a></span>
+  </footer>
+</body>
+</html>
