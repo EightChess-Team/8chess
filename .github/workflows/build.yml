@@ -1,0 +1,25 @@
+name: Build 8Chess
+
+on:
+  push:
+    branches: [beta, 8chess]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools
+      - name: Install cargo-pgo
+        run: cargo install cargo-pgo
+      - name: Build (no-syzygy)
+        run: cargo build --release --no-default-features
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: eightchess-dev
+          path: target/release/eightchess
