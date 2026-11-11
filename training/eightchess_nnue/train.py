@@ -77,6 +77,47 @@ class EncodedDataset:
         return batch_tensors
 
 
+def split_ragged_batch(inputs, num_chunks: int):
+    """Splits a ragged batch into position-aligned chunks.
+
+    `inputs` is the 9-tuple (4 idx/offset stream pairs + buckets) produced by
+    `EncodedDataset.get_batch`. Splitting the flat index array with DataParallel
+    would break the bag offsets, so chunk on position boundaries and rebuild
+    each chunk's offsets relative to its own slice.
+    """
+    buckets = inputs[8]
+    n_positions = buckets.size(0)
+    bounds = [(i * n_positions) // num_chunks for i in range(num_chunks + 1)]
+    chunks = []
+    for c in range(num_chunks):
+        start_pos, end_pos = bounds[c], bounds[c + 1]
+        chunk = []
+        for idx_i, off_i in ((0, 1), (2, 3), (4, 5), (6, 7)):
+            flat = inputs[idx_i]
+            offsets = inputs[off_i]
+            start = int(offsets[start_pos].item())
+            end = int(offsets[end_pos].item()) if end_pos < n_positions else int(flat.numel())
+            chunk.append(flat[start:end])
+            chunk.append(offsets[start_pos:end_pos] - offsets[start_pos])
+        chunk.append(buckets[start_pos:end_pos])
+        chunks.append(tuple(chunk))
+    return chunks
+
+
+class RaggedDataParallel(torch.nn.DataParallel):
+    """DataParallel that shards ragged bags on position boundaries."""
+
+    def scatter(self, inputs, kwargs, device_ids):
+        if len(inputs) != 9:
+            return super().scatter(inputs, kwargs, device_ids)
+        chunks = split_ragged_batch(inputs, len(device_ids))
+        scattered = tuple(
+            tuple(t.to(device, non_blocking=True) for t in chunk)
+            for chunk, device in zip(chunks, device_ids)
+        )
+        return scattered, tuple({} for _ in device_ids)
+
+
 def resolve_shards(specs: list[str]) -> list[str]:
     """Expands directories and globs into a deduplicated list of .npz paths."""
     paths: list[str] = []
@@ -173,6 +214,7 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=4096)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--ft-lr-scale", type=float, default=None, help="LR multiplier for FT parameters")
+    parser.add_argument("--head-lr-scale", type=float, default=None, help="LR multiplier for head (L1 bias, L2, L3) when soft-freezing")
     parser.add_argument("--freeze-base-ft", action="store_true", help="freeze original 768 FT channels (0..384, 512..896)")
     parser.add_argument("--freeze-backbone", action="store_true", help="freeze entire 768 backbone (FT_old, L1_old, L2, L3) and train only the 256 new residual channels")
     parser.add_argument("--temperature", type=float, default=173.72)
@@ -239,27 +281,33 @@ def main() -> int:
                 raw_model.l1_weight[:, :, sl].uniform_(-0.02, 0.02, generator=g)
         print("revived 256 dormant FT channels (two 128-wide residual slices)", flush=True)
     if device.type == "cuda" and torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model)
-        print(f"Using {torch.cuda.device_count()} GPUs via DataParallel", flush=True)
+        model = RaggedDataParallel(model)
+        print(f"Using {torch.cuda.device_count()} GPUs via ragged DataParallel", flush=True)
     else:
         print(f"Using single device: {device}", flush=True)
 
     ft_lr_scale = args.ft_lr_scale if args.ft_lr_scale is not None else (0.1 if (args.base or args.resume) else 1.0)
     ft_params = [raw_model.ft_piece.weight, raw_model.ft_threat.weight, raw_model.ft_bias]
     if args.freeze_backbone:
-        for p in (raw_model.l1_bias, raw_model.l2_weight, raw_model.l2_bias, raw_model.l3_weight, raw_model.l3_bias):
-            p.requires_grad_(False)
+        # Soft freeze: old 768 channels frozen, but head (L1 bias, L2, L3) trains
+        # at a reduced LR so it can adapt to the new residual channels without
+        # catastrophic forgetting.
+        head_lr_scale = args.head_lr_scale if args.head_lr_scale is not None else 0.1
         head_params = [raw_model.l1_weight]
+        head_low_params = [raw_model.l1_bias, raw_model.l2_weight, raw_model.l2_bias, raw_model.l3_weight, raw_model.l3_bias]
         head_wd = 0.0
     else:
+        head_lr_scale = 1.0
         head_params = [raw_model.l1_weight, raw_model.l1_bias, raw_model.l2_weight, raw_model.l2_bias, raw_model.l3_weight, raw_model.l3_bias]
+        head_low_params = []
         head_wd = 1e-5
-    optimizer = AdamW(
-        [
-            {"params": ft_params, "lr": args.lr * ft_lr_scale, "weight_decay": 0.0},
-            {"params": head_params, "lr": args.lr, "weight_decay": head_wd},
-        ]
-    )
+    opt_groups = [
+        {"params": ft_params, "lr": args.lr * ft_lr_scale, "weight_decay": 0.0},
+        {"params": head_params, "lr": args.lr, "weight_decay": head_wd},
+    ]
+    if args.freeze_backbone and head_low_params:
+        opt_groups.append({"params": head_low_params, "lr": args.lr * head_lr_scale, "weight_decay": head_wd})
+    optimizer = AdamW(opt_groups)
     steps_per_epoch = (total_train // args.batch_size + 1) * args.epochs
     scheduler = CosineAnnealingLR(optimizer, T_max=steps_per_epoch, eta_min=1e-6)
     if args.resume and "optimizer" in ckpt:
@@ -325,9 +373,7 @@ def main() -> int:
                         if raw_model.l1_weight.grad is not None:
                             raw_model.l1_weight.grad[:, :, :384] = 0.0
                             raw_model.l1_weight.grad[:, :, 512:896] = 0.0
-                        for p in (raw_model.l1_bias, raw_model.l2_weight, raw_model.l2_bias, raw_model.l3_weight, raw_model.l3_bias):
-                            if p.grad is not None:
-                                p.grad.zero_()
+                        # Head gradients are NOT zeroed — they train at reduced LR.
                 optimizer.step()
                 scheduler.step()
 
