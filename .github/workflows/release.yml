@@ -35,12 +35,13 @@ jobs:
             name: linux-aarch64
             rustflags: "-C target-cpu=native"
             target: aarch64-unknown-linux-gnu
-          # Linux RISC-V
+          # Linux RISC-V (no syzygy — no clang in cross image)
           - os: ubuntu-latest
             name: linux-riscv64
             rustflags: "-C target-cpu=generic-rv64"
             target: riscv64gc-unknown-linux-gnu
             cross: true
+            no_syzygy: true
           # Windows x86-64
           - os: windows-latest
             name: windows-x86_64-generic
@@ -90,17 +91,33 @@ jobs:
         shell: bash
 
       - name: Build binary
-        if: matrix.cross != true && matrix.name != 'wasm'
+        if: matrix.cross != true && matrix.name != 'wasm' && matrix.no_syzygy != true
         run: |
           cargo build --release --target ${{ matrix.target }}
         env:
           RUSTFLAGS: "${{ matrix.rustflags }}"
         shell: bash
 
+      - name: Build binary (no syzygy)
+        if: matrix.no_syzygy == true
+        run: |
+          cargo build --release --target ${{ matrix.target }} --no-default-features
+        env:
+          RUSTFLAGS: "${{ matrix.rustflags }}"
+        shell: bash
+
       - name: Build binary (cross)
-        if: matrix.cross == true
+        if: matrix.cross == true && matrix.no_syzygy != true
         run: |
           cross build --release --target ${{ matrix.target }}
+        env:
+          RUSTFLAGS: "${{ matrix.rustflags }}"
+        shell: bash
+
+      - name: Build binary (cross, no syzygy)
+        if: matrix.cross == true && matrix.no_syzygy == true
+        run: |
+          cross build --release --target ${{ matrix.target }} --no-default-features
         env:
           RUSTFLAGS: "${{ matrix.rustflags }}"
         shell: bash
