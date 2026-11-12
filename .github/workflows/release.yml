@@ -26,12 +26,10 @@ jobs:
             name: linux-x86_64-avx2
             rustflags: "-C target-cpu=x86-64-v3"
             target: x86_64-unknown-linux-gnu
-            sde_flag: -bdw
           - os: ubuntu-latest
             name: linux-x86_64-avx512
             rustflags: "-C target-cpu=x86-64-v4 -C target-feature=+gfni,+avx512bw,+avx512vl,+avx512vbmi,+avx512vbmi2,+avx512vnni,+avx512bitalg"
             target: x86_64-unknown-linux-gnu
-            sde_flag: -icx
           # Linux ARM64
           - os: ubuntu-24.04-arm
             name: linux-aarch64
@@ -52,12 +50,10 @@ jobs:
             name: windows-x86_64-avx2
             rustflags: "-C target-cpu=x86-64-v3"
             target: x86_64-pc-windows-msvc
-            sde_flag: -bdw
           - os: windows-latest
             name: windows-x86_64-avx512
             rustflags: "-C target-cpu=x86-64-v4 -C target-feature=+gfni,+avx512bw,+avx512vl,+avx512vbmi,+avx512vbmi2,+avx512vnni,+avx512bitalg"
             target: x86_64-pc-windows-msvc
-            sde_flag: -icx
           # Windows ARM64
           - os: windows-11-arm
             name: windows-aarch64
@@ -73,6 +69,11 @@ jobs:
             name: macos-aarch64
             rustflags: "-C target-cpu=native"
             target: aarch64-apple-darwin
+          # WASM
+          - os: ubuntu-latest
+            name: wasm
+            rustflags: ""
+            target: wasm32-unknown-unknown
 
     steps:
       - name: Checkout repository
@@ -83,57 +84,13 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install dependencies
-        run: |
-          rustup component add llvm-tools
-          cargo install cargo-pgo
-        shell: bash
-
       - name: Install cross-compilation tools
         if: matrix.cross == true
-        run: |
-          cargo install cross
-        shell: bash
-
-      - name: Setup Intel SDE
-        if: matrix.sde_flag != ''
-        uses: petarpetrovt/setup-sde@v5.0
-        with:
-          sdeVersion: "9.58.0"
-          environmentVariableName: SDE_PATH
-
-      - name: Instrument build for PGO
-        run: |
-          cargo pgo instrument --target ${{ matrix.target }}
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
-        shell: bash
-
-      - name: Run PGO profiling benchmarks
-        if: matrix.sde_flag != ''
-        run: |
-          "$SDE_PATH/sde64" ${{ matrix.sde_flag }} -- cargo pgo run --target ${{ matrix.target }} -- bench
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
-        shell: bash
-
-      - name: Run PGO profiling benchmarks
-        if: matrix.sde_flag == ''
-        run: |
-          cargo pgo run --target ${{ matrix.target }} -- bench
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
-        shell: bash
-
-      - name: Optimize build with PGO
-        run: |
-          cargo pgo optimize --target ${{ matrix.target }}
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
+        run: cargo install cross
         shell: bash
 
       - name: Build binary
-        if: matrix.cross != true
+        if: matrix.cross != true && matrix.name != 'wasm'
         run: |
           cargo build --release --target ${{ matrix.target }}
         env:
@@ -148,7 +105,16 @@ jobs:
           RUSTFLAGS: "${{ matrix.rustflags }}"
         shell: bash
 
+      - name: Build WASM
+        if: matrix.name == 'wasm'
+        run: |
+          RUSTFLAGS="" cargo build --lib --target wasm32-unknown-unknown --release --no-default-features
+          cargo install wasm-bindgen-cli --version 0.2.123
+          wasm-bindgen target/wasm32-unknown-unknown/release/eightchess.wasm --target web --out-dir pkg
+        shell: bash
+
       - name: Rename binary with platform suffix
+        if: matrix.name != 'wasm'
         shell: bash
         run: |
           if [ "${{ runner.os }}" = "Windows" ]; then
@@ -164,42 +130,12 @@ jobs:
           path: |
             ${{ matrix.name }}
             ${{ matrix.name }}.exe
-          retention-days: 7
-
-
-  build-wasm:
-    name: Build WASM
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Setup Rust nightly toolchain
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Install wasm-bindgen-cli
-        run: cargo install wasm-bindgen-cli --version 0.2.123
-
-      - name: Build WASM
-        run: |
-          RUSTFLAGS="" cargo build --lib --target wasm32-unknown-unknown --release --no-default-features
-
-      - name: Generate JS bindings
-        run: |
-          wasm-bindgen target/wasm32-unknown-unknown/release/eightchess.wasm --target web --out-dir pkg
-
-      - name: Upload WASM artifacts
-        uses: actions/upload-artifact@v5.0.0
-        with:
-          name: eightchess-wasm
-          path: pkg/
+            pkg/
           retention-days: 7
 
   release:
     name: Create release
-    needs: [build, build-wasm]
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
