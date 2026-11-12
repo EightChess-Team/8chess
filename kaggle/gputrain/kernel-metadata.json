@@ -1,0 +1,21 @@
+{
+  "id": "hemeshchesskas/eightchess-gpu-train-v2",
+  "title": "EightChess GPU Train v2",
+  "code_file": "eightchess_gpu_train.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "dataset_sources": [
+    "hemeshchesskas/8chess-t91-full",
+    "hemeshchesskas/8chess-champion-net",
+    "hemeshchesskas/8chess-training-code-v2",
+    "hemeshchesskas/8chess-sf-fishpack32-42m",
+    "hemeshchesskas/8chess-sf-mixed",
+    "hemeshchesskas/8chess-lc0"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

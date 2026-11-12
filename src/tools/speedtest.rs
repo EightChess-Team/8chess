@@ -93,7 +93,7 @@ pub fn speedtest(args: &[&str]) {
 
         let board = Board::from_fen(position).unwrap();
         let time_manager = TimeManager::new(Limits::Time(ms_per_position), 0, 0);
-        pool.execute_searches(time_manager, Report::None, 1, &board, &shared);
+        pool.execute_searches(time_manager, Report::None, 1, &board, &shared, None);
     }
     eprintln!();
 
@@ -105,7 +105,7 @@ pub fn speedtest(args: &[&str]) {
 
         let board = Board::from_fen(position).unwrap();
         let time_manager = TimeManager::new(Limits::Time(ms_per_position), 0, 0);
-        pool.execute_searches(time_manager, Report::None, 1, &board, &shared);
+        pool.execute_searches(time_manager, Report::None, 1, &board, &shared, None);
 
         nodes += shared.nodes.aggregate();
     }

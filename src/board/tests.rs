@@ -122,6 +122,29 @@ fn from_fen_accepts_missing_optional_fields() {
 }
 
 #[test]
+fn from_fen_rejects_malformed_placement() {
+    prepare_lut();
+
+    assert!(Board::from_fen("9/8/8/8/8/8/8/4K2k w - - 0 1").is_err());
+    assert!(Board::from_fen("4k3/8/8/8/8/8/8/4K3/8 w - - 0 1").is_err());
+    assert!(Board::from_fen("4k3/8/8/8/8/8/8/5K2 w - - 0 1").is_ok());
+    assert!(Board::from_fen("4k3/8/8/8/8/8/8/8 w - - 0 1").is_err());
+    assert!(Board::from_fen("4k3/8/8/8/8/8/8/4K2P w - - 0 1").is_err());
+}
+
+#[test]
+fn from_fen_ignores_impossible_castling_rights() {
+    prepare_lut();
+
+    let board = Board::from_fen("4k3/8/8/8/8/8/8/4K3 w KQkq - 0 1").unwrap();
+    assert_eq!(board.castling().raw(), 0);
+    assert!(board.to_fen().contains(" - "));
+
+    let board = Board::from_fen("4k3/8/8/8/8/8/8/4K2R w K - 0 1").unwrap();
+    assert_eq!(board.castling().raw(), 0b0001);
+}
+
+#[test]
 fn halfmove_clock_saturates_instead_of_overflowing() {
     prepare_lut();
 

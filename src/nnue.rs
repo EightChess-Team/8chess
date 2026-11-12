@@ -426,6 +426,11 @@ impl Parameters {
         Ok(())
     }
 
+    /// Restores the compile-time embedded network as the active network.
+    pub fn reset_to_embedded() {
+        ACTIVE_PARAMETERS.store(std::ptr::null_mut(), Ordering::Release);
+    }
+
     fn allocate_owned() -> Arc<Self> {
         let mut boxed = Box::<std::mem::MaybeUninit<Self>>::new(std::mem::MaybeUninit::uninit());
         let ptr = boxed.as_mut_ptr();
@@ -506,5 +511,77 @@ impl<T> std::ops::Deref for Aligned<T> {
 impl<T> std::ops::DerefMut for Aligned<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Plays deterministic pseudo-random moves and verifies that the
+    /// incrementally updated accumulators agree with a fresh full refresh
+    /// after every move. This exercises castling, captures, en passant and
+    /// promotions as well as the pop/undo path used by the search.
+    #[test]
+    fn incremental_accumulators_match_full_refresh() {
+        let parameters = ParametersHandle::allocate_shared().unwrap();
+        let mut incremental = Network::new(parameters.clone());
+        let mut reference = Network::new(parameters);
+
+        let mut seed = 0x9E37_79B9_7F4A_7C15u64;
+
+        for fen in [
+            Board::starting_position().to_fen(),
+            "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1".to_string(),
+            "rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3".to_string(),
+            "8/P6k/8/8/8/8/6K1/8 w - - 0 1".to_string(),
+            "bqnb1rkr/pp3ppp/3ppn2/2p5/5P2/P2P4/NPP1P1PP/BQ1BNRKR w HFhf - 2 9".to_string(),
+        ] {
+            let mut board = Board::from_fen(&fen).unwrap();
+
+            incremental.full_refresh(&board);
+            reference.full_refresh(&board);
+
+            let initial = incremental.evaluate(&board);
+            assert_eq!(initial, reference.evaluate(&board), "initial position: {fen}");
+
+            let mut history = Vec::new();
+            let mut previous_eval = initial;
+
+            for ply in 0..96 {
+                let moves = board.generate_all_moves();
+                if moves.is_empty() {
+                    break;
+                }
+
+                seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+                let mv = moves[(seed >> 33) as usize % moves.len()].mv;
+
+                incremental.push(mv, &board);
+                board.make_move(mv, &mut incremental);
+
+                let incremental_eval = incremental.evaluate(&board);
+                reference.full_refresh(&board);
+                let reference_eval = reference.evaluate(&board);
+
+                assert_eq!(
+                    incremental_eval,
+                    reference_eval,
+                    "incremental mismatch at ply {ply} for fen {fen} after move {}",
+                    mv.to_uci(&board)
+                );
+
+                history.push((mv, previous_eval));
+                previous_eval = incremental_eval;
+            }
+
+            while let Some((mv, expected)) = history.pop() {
+                board.undo_move(mv);
+                incremental.pop();
+
+                let incremental_eval = incremental.evaluate(&board);
+                assert_eq!(incremental_eval, expected, "undo mismatch for fen {fen}");
+            }
+        }
     }
 }

@@ -1,24 +1,33 @@
 use super::Board;
 use crate::{
-    lookup::{between, ray_pass},
-    types::{CastlingKind, Color, HOME_RANK, KING_TO_FILE, Piece, PieceType, ROOK_TO_FILE, Square},
+    lookup::between,
+    types::{
+        Bitboard, CastlingKind, Color, HOME_RANK, KING_TO_FILE, Piece, PieceType, ROOK_TO_FILE, Square,
+    },
 };
 
 #[derive(Debug)]
 pub enum ParseFenError {
     /// The FEN string is missing piece placement data.
     MissingPlacementData,
+    /// The piece placement data is malformed (wrong rank/file count).
+    InvalidPlacementData,
     /// The FEN string contains an invalid piece type character.
     InvalidPieceType,
     /// The FEN string contains an invalid active color.
     InvalidActiveColor,
+    /// The FEN string does not contain exactly one king for the given color.
+    MissingKing(Color),
+    /// The FEN string places a pawn on the first or last rank.
+    InvalidPawnPlacement,
 }
 
 impl Board {
     /// Parses a [Forsyth–Edwards Notation][fen] string into a `Board`.
     ///
-    /// The parser is not very strict and will accept some invalid FEN strings,
-    /// it's the responsibility of the GUI to ensure the FEN string is valid.
+    /// The parser accepts the common shorthand forms with missing optional
+    /// fields, but rejects placement data that would otherwise index outside
+    /// the board or produce a position without exactly one king per side.
     ///
     /// [fen]: https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation
     pub fn from_fen(fen: &str) -> Result<Self, ParseFenError> {
@@ -26,23 +35,57 @@ impl Board {
         let mut parts = fen.split_whitespace();
 
         let rows = parts.next().ok_or(ParseFenError::MissingPlacementData)?.split('/');
+        let mut rank_count = 0;
 
         for (rank, row) in rows.rev().enumerate() {
-            let mut file = 0;
+            if rank >= 8 {
+                return Err(ParseFenError::InvalidPlacementData);
+            }
+            rank_count += 1;
+
+            let mut file = 0u8;
 
             for symbol in row.chars() {
                 if let Some(skip) = symbol.to_digit(10) {
+                    if !(1..=8).contains(&skip) {
+                        return Err(ParseFenError::InvalidPlacementData);
+                    }
                     file += skip as u8;
-                    continue;
+                } else {
+                    if file >= 8 {
+                        return Err(ParseFenError::InvalidPlacementData);
+                    }
+
+                    let piece = symbol.try_into().map_err(|()| ParseFenError::InvalidPieceType)?;
+                    let square = Square::from_rank_file(rank as u8, file);
+
+                    board.add_piece(piece, square);
+                    board.state.material += piece.value();
+                    file += 1;
                 }
 
-                let piece = symbol.try_into().map_err(|()| ParseFenError::InvalidPieceType)?;
-                let square = Square::from_rank_file(rank as u8, file);
-
-                board.add_piece(piece, square);
-                board.state.material += piece.value();
-                file += 1;
+                if file > 8 {
+                    return Err(ParseFenError::InvalidPlacementData);
+                }
             }
+
+            if file != 8 {
+                return Err(ParseFenError::InvalidPlacementData);
+            }
+        }
+
+        if rank_count != 8 {
+            return Err(ParseFenError::InvalidPlacementData);
+        }
+
+        for color in [Color::White, Color::Black] {
+            if board.colored_pieces(color, PieceType::King).popcount() != 1 {
+                return Err(ParseFenError::MissingKing(color));
+            }
+        }
+
+        if !(board.pieces(PieceType::Pawn) & Bitboard::BOTH_HOME_ROWS).is_empty() {
+            return Err(ParseFenError::InvalidPawnPlacement);
         }
 
         let side_to_move = match parts.next() {
@@ -51,12 +94,19 @@ impl Board {
             _ => return Err(ParseFenError::InvalidActiveColor),
         };
 
-        board.set_castling(parts.next().unwrap_or_default());
+        board.set_castling(parts.next().unwrap_or("-"));
 
-        board.state.en_passant = parts.next().unwrap_or_default().try_into().unwrap_or_default();
+        let expected_en_passant_rank = if side_to_move == Color::White { 5 } else { 2 };
+        board.state.en_passant = parts
+            .next()
+            .and_then(|value| Square::try_from(value).ok())
+            .filter(|square| square.rank() as u8 == expected_en_passant_rank)
+            .unwrap_or(Square::None);
+
         board.state.fiftymove_clock = parts.next().unwrap_or_default().parse().unwrap_or_default();
         let fullmove_number: usize = parts.next().unwrap_or_default().parse().unwrap_or_default();
-        board.halfmove_number = (2 * fullmove_number) + side_to_move as usize;
+        board.halfmove_number =
+            fullmove_number.max(1).saturating_mul(2).saturating_add(side_to_move as usize);
 
         board.update_threats();
         board.update_hash_keys();
@@ -67,30 +117,43 @@ impl Board {
 
     fn set_castling(&mut self, rights: &str) {
         for right in rights.chars() {
-            if !matches!(right.to_ascii_uppercase(), 'A'..='H' | 'K' | 'Q') {
+            let upper = right.to_ascii_uppercase();
+            if !matches!(upper, 'A'..='H' | 'K' | 'Q') {
                 continue;
             }
 
             let color = if right.is_uppercase() { Color::White } else { Color::Black };
             let king_from = self.king_square(color);
-            let mut search_step = right.to_ascii_uppercase() as i8 - b'A' as i8 - king_from.file() as i8;
 
-            if right.eq_ignore_ascii_case(&'K') {
-                search_step = Square::RIGHT;
-            }
-            if right.eq_ignore_ascii_case(&'Q') {
-                search_step = Square::LEFT;
+            if king_from.rank() as u8 != HOME_RANK[color] as u8 {
+                continue;
             }
 
-            let rook_from =
-                (ray_pass(king_from, king_from.shift(search_step)) & self.colored_pieces(color, PieceType::Rook)).lsb();
+            let rooks = self.colored_pieces(color, PieceType::Rook) & Bitboard::rank(HOME_RANK[color]);
+
+            let rook_from = if upper == 'K' {
+                rooks.into_iter().filter(|rook| *rook > king_from).min_by_key(|rook| *rook as u8)
+            } else if upper == 'Q' {
+                rooks.into_iter().filter(|rook| *rook < king_from).max_by_key(|rook| *rook as u8)
+            } else {
+                let file = upper as u8 - b'A';
+                rooks.into_iter().find(|rook| rook.file() as u8 == file)
+            };
+
+            let Some(rook_from) = rook_from else {
+                continue;
+            };
 
             let king_side = (rook_from > king_from) as usize;
-
             let rights = CastlingKind::KINDS[color][king_side];
 
-            let king_to = Square::from_rank_file(HOME_RANK[color].clone() as u8, KING_TO_FILE[king_side].clone() as u8);
-            let rook_to = Square::from_rank_file(HOME_RANK[color].clone() as u8, ROOK_TO_FILE[king_side].clone() as u8);
+            // Ignore duplicate or contradictory castling rights.
+            if self.state.castling.is_allowed(rights) {
+                continue;
+            }
+
+            let king_to = Square::from_rank_file(HOME_RANK[color] as u8, KING_TO_FILE[king_side] as u8);
+            let rook_to = Square::from_rank_file(HOME_RANK[color] as u8, ROOK_TO_FILE[king_side] as u8);
 
             self.set_castling_for(rights, king_from, king_to, rook_from, rook_to);
         }

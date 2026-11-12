@@ -71,10 +71,11 @@ pub fn message_loop(mut buffer: VecDeque<String>) {
 
             ["go", tokens @ ..] => go(&mut threads, &settings, &board, &shared, tokens),
             ["position", tokens @ ..] => position(&mut board, &settings, tokens),
-            ["setoption", tokens @ ..] => set_option(&mut threads, &mut settings, &shared, tokens),
+            ["setoption", ..] => set_option(&mut threads, &mut settings, &mut board, &shared, &message),
             ["ucinewgame"] => reset(&mut threads, &shared),
 
             ["stop"] => shared.status.set(Status::STOPPED),
+            ["ponderhit"] => shared.status.set(Status::STOPPED),
             ["quit"] => {
                 drop(threads);
                 break;
@@ -86,13 +87,14 @@ pub fn message_loop(mut buffer: VecDeque<String>) {
             ["evalnum"] => evalnum(threads.main_thread(), &board),
             ["dumpacc", color] => dumpacc(threads.main_thread(), &board, color),
             ["threatprobe", piece, from, attacked, to] => {
-                let piece = piece.parse().unwrap();
-                let from = from.parse().unwrap();
-                let attacked = attacked.parse().unwrap();
-                let to = to.parse().unwrap();
-                let (base, offset, attack_index) =
-                    crate::nnue::Network::debug_threat_components(piece, from, attacked, to);
-                println!("base={base} offset={offset} attack_index={attack_index}");
+                match (piece.parse(), from.parse(), attacked.parse(), to.parse()) {
+                    (Ok(piece), Ok(from), Ok(attacked), Ok(to)) => {
+                        let (base, offset, attack_index) =
+                            crate::nnue::Network::debug_threat_components(piece, from, attacked, to);
+                        println!("base={base} offset={offset} attack_index={attack_index}");
+                    }
+                    _ => eprintln!("Usage: threatprobe <piece> <from> <attacked> <to>"),
+                }
             }
             ["d"] => println!("{board}"),
             ["bench", args @ ..] => match mode {
@@ -100,11 +102,20 @@ pub fn message_loop(mut buffer: VecDeque<String>) {
                 Mode::Cli => tools::bench::<false>(args),
             },
             ["speedtest", args @ ..] => tools::speedtest(args),
-            ["perft", depth] => tools::perft(depth.parse().unwrap(), &mut board),
+            ["perft", depth] => match depth.parse::<usize>() {
+                Ok(depth) => tools::perft(depth, &mut board),
+                Err(_) => eprintln!("Usage: perft <depth>"),
+            },
             ["perft"] => eprintln!("Usage: perft <depth>"),
-            ["simpleperft", depth] => tools::simple_perft(depth.parse().unwrap(), &mut board),
+            ["simpleperft", depth] => match depth.parse::<usize>() {
+                Ok(depth) => tools::simple_perft(depth, &mut board),
+                Err(_) => eprintln!("Usage: simpleperft <depth>"),
+            },
             ["simpleperft"] => eprintln!("Usage: simpleperft <depth>"),
-            ["islegalperft", depth] => tools::is_legal_perft(depth.parse().unwrap(), &mut board),
+            ["islegalperft", depth] => match depth.parse::<usize>() {
+                Ok(depth) => tools::is_legal_perft(depth, &mut board),
+                Err(_) => eprintln!("Usage: islegalperft <depth>"),
+            },
             ["islegalperft"] => eprintln!("Usage: islegalperft <depth>"),
 
             // Ignore empty lines
@@ -138,7 +149,7 @@ fn spawn_listener(shared: Arc<SharedContext>) -> std::sync::mpsc::Receiver<Strin
 
             match message.trim_end() {
                 "isready" => println!("readyok"),
-                "stop" => shared.status.set(Status::STOPPED),
+                "stop" | "ponderhit" => shared.status.set(Status::STOPPED),
                 "quit" => {
                     shared.status.set(Status::STOPPED);
                     let _ = tx.send("quit".to_string());
@@ -160,7 +171,7 @@ fn spawn_listener(shared: Arc<SharedContext>) -> std::sync::mpsc::Receiver<Strin
 }
 
 fn uci() {
-    println!("id name 8Chess 1.0");
+    println!("id name 8Chess {}", env!("ENGINE_VERSION"));
     println!("id author 8Chess project");
     println!("option name Hash type spin default {DEFAULT_TT_SIZE} min 1 max 262144");
     println!("option name Threads type spin default 1 min 1 max {}", ThreadPool::available_threads());
@@ -170,7 +181,7 @@ fn uci() {
     println!("option name UCI_Chess960 type check default false");
     println!("option name MultiPV type spin default 1 min 1 max {MAX_MOVES}");
     println!("option name EvalFile type string default <internal>");
-    println!("option name Contempt type spin default 8 min -100 max 100");
+    println!("option name Contempt type spin default 0 min -100 max 100");
     println!("option name Sharpness type spin default 0 min 0 max 100");
 
     #[cfg(feature = "syzygy")]
@@ -200,10 +211,17 @@ fn reset(threads: &mut ThreadPool, shared: &Arc<SharedContext>) {
 }
 
 fn go(threads: &mut ThreadPool, settings: &Settings, board: &Board, shared: &Arc<SharedContext>, tokens: &[&str]) {
-    let limits = parse_limits(board.side_to_move(), tokens);
+    let (limits, searchmoves) = parse_go(board, tokens);
     let time_manager = TimeManager::new(limits, board.fullmove_number(), settings.move_overhead);
 
-    threads.execute_searches(time_manager, settings.report, settings.multi_pv, board, shared);
+    threads.execute_searches(
+        time_manager,
+        settings.report,
+        settings.multi_pv,
+        board,
+        shared,
+        searchmoves.as_deref(),
+    );
 
     if threads[0].root_moves.is_empty() {
         println!("bestmove (none)");
@@ -264,109 +282,243 @@ fn go(threads: &mut ThreadPool, settings: &Settings, board: &Board, shared: &Arc
     crate::misc::dbg_print();
 }
 
-fn position(board: &mut Board, settings: &Settings, mut tokens: &[&str]) {
-    while !tokens.is_empty() {
-        match tokens {
-            ["startpos", rest @ ..] => {
-                *board = Board::starting_position();
-                tokens = rest;
-            }
-            ["fen", rest @ ..] => {
-                match Board::from_fen(&rest.join(" ")) {
-                    Ok(b) => *board = b,
-                    Err(e) => eprintln!("Invalid FEN: {e:?}"),
-                }
+fn position(board: &mut Board, settings: &Settings, tokens: &[&str]) {
+    let mut index = 0;
+
+    if tokens.first().is_some_and(|token| token.eq_ignore_ascii_case("startpos")) {
+        *board = Board::starting_position();
+        board.set_frc(settings.frc);
+        index = 1;
+    } else if tokens.first().is_some_and(|token| token.eq_ignore_ascii_case("fen")) {
+        index = 1;
+
+        // A FEN has six fields. Stop at "moves" so that a malformed or short
+        // FEN does not swallow the move list.
+        let mut fen_fields = Vec::with_capacity(6);
+        while index < tokens.len() && fen_fields.len() < 6 && !tokens[index].eq_ignore_ascii_case("moves") {
+            fen_fields.push(tokens[index]);
+            index += 1;
+        }
+
+        match Board::from_fen(&fen_fields.join(" ")) {
+            Ok(parsed) => {
+                *board = parsed;
                 board.set_frc(settings.frc);
-                tokens = rest;
             }
-            ["moves", rest @ ..] => {
-                for uci_move in rest {
-                    make_uci_move(board, uci_move);
-                }
-                break;
-            }
-            _ => tokens = &tokens[1..],
+            Err(error) => eprintln!("Invalid FEN: {error:?}"),
+        }
+    }
+
+    while index < tokens.len() && !tokens[index].eq_ignore_ascii_case("moves") {
+        index += 1;
+    }
+
+    if index < tokens.len() {
+        for uci_move in &tokens[index + 1..] {
+            make_uci_move(board, uci_move);
         }
     }
 }
 
-fn make_uci_move(board: &mut Board, uci_move: &str) {
+/// Resolves a UCI move against the legal moves in `board`.
+///
+/// In Chess960 mode both the native king-to-rook encoding and the
+/// king-to-castling-square encoding used by some GUIs are accepted.
+fn find_move(board: &Board, uci_move: &str) -> Option<Move> {
     let moves = board.generate_all_moves();
-    if let Some(mv) = moves.iter().map(|entry| entry.mv).find(|mv| mv.to_uci(board) == uci_move) {
+
+    if let Some(mv) =
+        moves.iter().map(|entry| entry.mv).find(|mv| mv.to_uci(board).eq_ignore_ascii_case(uci_move))
+    {
+        return Some(mv);
+    }
+
+    if board.is_frc() {
+        let from = Square::try_from(uci_move.get(0..2)?).ok()?;
+        let to = Square::try_from(uci_move.get(2..4)?).ok()?;
+
+        return moves
+            .iter()
+            .map(|entry| entry.mv)
+            .find(|mv| mv.is_castling() && mv.from() == from && mv.to() == to);
+    }
+
+    None
+}
+
+fn make_uci_move(board: &mut Board, uci_move: &str) {
+    if let Some(mv) = find_move(board, uci_move) {
         board.make_move(mv, &mut NullBoardObserver);
     }
 }
 
-fn set_option(threads: &mut ThreadPool, settings: &mut Settings, shared: &Arc<SharedContext>, tokens: &[&str]) {
-    match tokens {
-        ["name", "Minimal", "value", v] => match *v {
-            "true" => settings.report = Report::Minimal,
-            "false" => settings.report = Report::Full,
-            _ => eprintln!("Invalid value: '{v}'"),
+fn parse_bool(value: &str) -> Option<bool> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "true" | "1" | "yes" | "on" => Some(true),
+        "false" | "0" | "no" | "off" => Some(false),
+        _ => None,
+    }
+}
+
+/// Splits a `setoption` command into its option name and value.
+///
+/// Unlike a plain `split_whitespace`, this keeps spaces inside the value, so
+/// options such as `EvalFile` and `SyzygyPath` accept paths with spaces.
+fn parse_set_option(message: &str) -> Option<(String, String)> {
+    let bytes = message.as_bytes();
+    let mut words = Vec::new();
+    let mut index = 0;
+
+    while index < bytes.len() {
+        while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+            index += 1;
+        }
+
+        let start = index;
+        while index < bytes.len() && !bytes[index].is_ascii_whitespace() {
+            index += 1;
+        }
+
+        if start < index {
+            words.push((start, index));
+        }
+    }
+
+    let (first_start, first_end) = *words.first()?;
+    if !message[first_start..first_end].eq_ignore_ascii_case("setoption") {
+        return None;
+    }
+
+    let name_keyword = words
+        .iter()
+        .position(|&(start, end)| message[start..end].eq_ignore_ascii_case("name"))?;
+    let value_keyword =
+        words.iter().position(|&(start, end)| message[start..end].eq_ignore_ascii_case("value"));
+
+    let name_start = words[name_keyword].1;
+    let name_end = value_keyword.map_or(message.len(), |position| words[position].0);
+    let name = message[name_start..name_end].trim().to_owned();
+
+    let value = match value_keyword {
+        Some(position) => message[words[position].1..].trim().to_owned(),
+        None => String::new(),
+    };
+
+    Some((name, value))
+}
+
+fn set_option(
+    threads: &mut ThreadPool, settings: &mut Settings, board: &mut Board, shared: &Arc<SharedContext>,
+    message: &str,
+) {
+    let Some((name, value)) = parse_set_option(message) else {
+        eprintln!("Malformed setoption command: '{}'", message.trim_end());
+        return;
+    };
+
+    match name.to_ascii_lowercase().as_str() {
+        "minimal" => match parse_bool(&value) {
+            Some(true) => settings.report = Report::Minimal,
+            Some(false) => settings.report = Report::Full,
+            None => eprintln!("Invalid value for Minimal: '{value}'"),
         },
-        ["name", "Clear", "Hash"] => {
+        "clear hash" => {
             shared.tt.clear(threads.len());
             println!("info string Hash cleared");
         }
-        ["name", "Hash", "value", v] => {
-            shared.tt.resize(threads.len(), v.parse().unwrap());
-            println!("info string set Hash to {v} MB");
-        }
-        ["name", "Threads", "value", v] => {
-            threads.set_count(v.parse().unwrap_or(1));
-            println!("info string set Threads to {}", threads.len());
-        }
-        ["name", "MoveOverhead", "value", v] => {
-            settings.move_overhead = v.parse().unwrap();
-            println!("info string set MoveOverhead to {v} ms");
-        }
-        #[cfg(feature = "syzygy")]
-        ["name", "SyzygyPath", "value", v] => match crate::tb::initialize(v) {
-            Some(size) => println!("info string Loaded Syzygy tablebases with {size} pieces"),
-            None => eprintln!("Failed to load Syzygy tablebases"),
+        "hash" => match value.parse::<usize>() {
+            Ok(value) => {
+                let value = value.clamp(1, 262_144);
+                shared.tt.resize(threads.len(), value);
+                println!("info string set Hash to {value} MB");
+            }
+            Err(_) => eprintln!("Invalid value for Hash: '{value}'"),
         },
-        ["name", "UCI_Chess960", "value", v] => {
-            settings.frc = v.parse().unwrap_or_default();
-            println!("info string set UCI_Chess960 to {v}");
-        }
-        ["name", "MultiPV", "value", v] => {
-            settings.multi_pv = v.parse().unwrap_or_default();
-            println!("info string set MultiPV to {v}");
-        }
-        ["name", "Contempt", "value", v] => {
-            let val: i32 = v.parse().unwrap_or(24);
-            crate::search::CONTEMPT.store(val, std::sync::atomic::Ordering::Relaxed);
-            println!("info string set Contempt to {v}");
-        }
-        ["name", "Sharpness", "value", v] => {
-            let val: i32 = v.parse().unwrap_or(0);
-            crate::search::SHARPNESS.store(val, std::sync::atomic::Ordering::Relaxed);
-            println!("info string set Sharpness to {v}");
-        }
-        ["name", "EvalFile", "value", v] => {
-            // Reserve thread 0's data while we swap the network so that the
-            // rebuild below happens with the new parameters in place.
-            let thread_count = threads.len();
+        "threads" => match value.parse::<usize>() {
+            Ok(value) => {
+                threads.set_count(value);
+                println!("info string set Threads to {}", threads.len());
+            }
+            Err(_) => eprintln!("Invalid value for Threads: '{value}'"),
+        },
+        "moveoverhead" => match value.parse::<u64>() {
+            Ok(value) => {
+                settings.move_overhead = value.clamp(0, 2000);
+                println!("info string set MoveOverhead to {} ms", settings.move_overhead);
+            }
+            Err(_) => eprintln!("Invalid value for MoveOverhead: '{value}'"),
+        },
+        #[cfg(feature = "syzygy")]
+        "syzygypath" => match crate::tb::initialize(&value) {
+            Some(size) => println!("info string Loaded Syzygy tablebases with {size} pieces"),
+            None => eprintln!("Failed to load Syzygy tablebases from '{value}'"),
+        },
+        "uci_chess960" => match parse_bool(&value) {
+            Some(frc) => {
+                settings.frc = frc;
+                board.set_frc(frc);
+                println!("info string set UCI_Chess960 to {frc}");
+            }
+            None => eprintln!("Invalid value for UCI_Chess960: '{value}'"),
+        },
+        "multipv" => match value.parse::<usize>() {
+            Ok(value) => {
+                settings.multi_pv = value.clamp(1, MAX_MOVES);
+                println!("info string set MultiPV to {}", settings.multi_pv);
+            }
+            Err(_) => eprintln!("Invalid value for MultiPV: '{value}'"),
+        },
+        "contempt" => match value.parse::<i32>() {
+            Ok(value) => {
+                let value = value.clamp(-100, 100);
+                crate::search::CONTEMPT.store(value, std::sync::atomic::Ordering::Relaxed);
+                println!("info string set Contempt to {value}");
+            }
+            Err(_) => eprintln!("Invalid value for Contempt: '{value}'"),
+        },
+        "sharpness" => match value.parse::<i32>() {
+            Ok(value) => {
+                let value = value.clamp(0, 100);
+                crate::search::SHARPNESS.store(value, std::sync::atomic::Ordering::Relaxed);
+                println!("info string set Sharpness to {value}");
+            }
+            Err(_) => eprintln!("Invalid value for Sharpness: '{value}'"),
+        },
+        "evalfile" => {
+            let reset_to_embedded = value.is_empty() || value == "<internal>";
 
-            match crate::nnue::Parameters::load_from_file(std::path::Path::new(v)) {
+            let result = if reset_to_embedded {
+                crate::nnue::Parameters::reset_to_embedded();
+                Ok(())
+            } else {
+                crate::nnue::Parameters::load_from_file(std::path::Path::new(&value))
+            };
+
+            match result {
                 Ok(()) => {
                     // Force a full parameter re-replication (NUMA copies included)
                     // by bouncing the thread count, then rebuild thread state and
                     // drop search state derived from the previous network.
+                    let thread_count = threads.len();
                     threads.set_count(1);
                     threads.set_count(thread_count);
                     reset(threads, shared);
-                    println!("info string loaded eval file '{v}'");
+
+                    if reset_to_embedded {
+                        println!("info string using embedded eval file");
+                    } else {
+                        println!("info string loaded eval file '{value}'");
+                    }
                 }
-                Err(e) => eprintln!("Failed to load eval file: {e}"),
+                Err(error) => eprintln!("Failed to load eval file: {error}"),
             }
         }
         #[cfg(feature = "spsa")]
-        ["name", name, "value", v] => {
-            crate::parameters::set_parameter(name, v);
-            println!("info string set {name} to {v}");
+        _ => {
+            crate::parameters::set_parameter(&name, &value);
+            println!("info string set {name} to {value}");
         }
-        _ => eprintln!("Unknown option: '{}'", tokens.join(" ").trim_end()),
+        _ => eprintln!("Unknown option: '{name}'"),
     }
 }
 
@@ -451,35 +603,122 @@ fn eval(td: &mut ThreadData, board: &Board) {
     println!("\nNNUE evaluation        {final_total:+.2} (White's POV)");
 }
 
+fn is_go_keyword(token: &str) -> bool {
+    matches!(
+        token.to_ascii_lowercase().as_str(),
+        "searchmoves"
+            | "ponder"
+            | "wtime"
+            | "btime"
+            | "winc"
+            | "binc"
+            | "movestogo"
+            | "depth"
+            | "nodes"
+            | "mate"
+            | "movetime"
+            | "infinite"
+    )
+}
+
+/// Parses a `go` command into search limits and an optional root move filter.
+fn parse_go(board: &Board, tokens: &[&str]) -> (Limits, Option<Vec<Move>>) {
+    let mut limit_tokens = Vec::new();
+    let mut searchmoves = None;
+    let mut index = 0;
+
+    while index < tokens.len() {
+        if tokens[index].eq_ignore_ascii_case("searchmoves") {
+            let mut moves = Vec::new();
+            index += 1;
+
+            while index < tokens.len() && !is_go_keyword(tokens[index]) {
+                if let Some(mv) = find_move(board, tokens[index]) {
+                    moves.push(mv);
+                }
+                index += 1;
+            }
+
+            searchmoves = Some(moves);
+        } else {
+            limit_tokens.push(tokens[index]);
+            index += 1;
+        }
+    }
+
+    (parse_limits(board.side_to_move(), &limit_tokens), searchmoves)
+}
+
 fn parse_limits(color: Color, tokens: &[&str]) -> Limits {
-    if let ["infinite"] = tokens {
+    if tokens.iter().any(|token| {
+        token.eq_ignore_ascii_case("infinite") || token.eq_ignore_ascii_case("ponder")
+    }) {
         return Limits::Infinite;
     }
 
     let mut main = None;
     let mut inc = None;
     let mut moves = None;
+    let mut index = 0;
 
-    for chunk in tokens.chunks(2) {
-        if let [name, value] = *chunk {
-            let Ok(value) = value.parse::<u64>() else {
-                continue;
-            };
+    while index < tokens.len() {
+        let name = tokens[index];
+        let value = tokens.get(index + 1).and_then(|value| value.parse::<u64>().ok());
 
-            match name {
-                "depth" if value > 0 => return Limits::Depth(value as i32),
-                "movetime" if value > 0 => return Limits::Time(value),
-                "nodes" if value > 0 => return Limits::Nodes(value),
-                "mate" if value > 0 => return Limits::Mate(value),
-
-                "wtime" if Color::White == color => main = Some(value),
-                "btime" if Color::Black == color => main = Some(value),
-                "winc" if Color::White == color => inc = Some(value),
-                "binc" if Color::Black == color => inc = Some(value),
-                "movestogo" => moves = Some(value),
-
-                _ => continue,
+        match name.to_ascii_lowercase().as_str() {
+            "depth" => {
+                if let Some(value) = value {
+                    return Limits::Depth(value.max(1).min(i32::MAX as u64) as i32);
+                }
+                index += 2;
             }
+            "movetime" => {
+                if let Some(value) = value {
+                    return Limits::Time(value);
+                }
+                index += 2;
+            }
+            "nodes" => {
+                if let Some(value) = value {
+                    return Limits::Nodes(value.max(1));
+                }
+                index += 2;
+            }
+            "mate" => {
+                if let Some(value) = value.filter(|value| *value > 0) {
+                    return Limits::Mate(value);
+                }
+                index += 2;
+            }
+            "wtime" => {
+                if color == Color::White {
+                    main = value;
+                }
+                index += 2;
+            }
+            "btime" => {
+                if color == Color::Black {
+                    main = value;
+                }
+                index += 2;
+            }
+            "winc" => {
+                if color == Color::White {
+                    inc = value;
+                }
+                index += 2;
+            }
+            "binc" => {
+                if color == Color::Black {
+                    inc = value;
+                }
+                index += 2;
+            }
+            "movestogo" => {
+                moves = value.filter(|value| *value > 0);
+                index += 2;
+            }
+            _ => index += 1,
         }
     }
 
@@ -609,5 +848,73 @@ mod tests {
     fn test_position_moves_without_startpos_ignored() {
         let board = test_position_helper(&["moves", "e2e4", "e7e5"]);
         assert_eq!(board.to_fen(), "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
+    }
+
+    #[test]
+    fn parses_setoption_values_with_spaces() {
+        let (name, value) =
+            parse_set_option("setoption name EvalFile value /tmp/my nets/eight chess.nnue").unwrap();
+        assert_eq!(name, "EvalFile");
+        assert_eq!(value, "/tmp/my nets/eight chess.nnue");
+    }
+
+    #[test]
+    fn parses_setoption_button_without_value() {
+        let (name, value) = parse_set_option("setoption name Clear Hash").unwrap();
+        assert_eq!(name, "Clear Hash");
+        assert!(value.is_empty());
+    }
+
+    #[test]
+    fn parses_setoption_keywords_case_insensitively() {
+        let (name, value) = parse_set_option("setoption NAME SyzygyPath VALUE /tmp/syzygy").unwrap();
+        assert_eq!(name, "SyzygyPath");
+        assert_eq!(value, "/tmp/syzygy");
+    }
+
+    #[test]
+    fn ponder_search_is_infinite() {
+        let limits = parse_limits(Color::White, &["ponder", "wtime", "1000", "btime", "1000"]);
+        assert!(matches!(limits, Limits::Infinite));
+    }
+
+    #[test]
+    fn parses_clock_after_unknown_flag() {
+        let limits = parse_limits(Color::White, &["foo", "bar", "wtime", "1000", "winc", "10"]);
+        assert!(matches!(limits, Limits::Fischer(1000, 10)));
+    }
+
+    #[test]
+    fn ignores_zero_movestogo() {
+        let limits = parse_limits(Color::White, &["wtime", "1000", "movestogo", "0"]);
+        assert!(matches!(limits, Limits::Fischer(1000, 0)));
+    }
+
+    #[test]
+    fn parses_searchmoves() {
+        let board = Board::starting_position();
+        let (limits, searchmoves) = parse_go(&board, &["depth", "3", "searchmoves", "e2e4", "d2d4"]);
+
+        assert!(matches!(limits, Limits::Depth(3)));
+        assert_eq!(searchmoves.unwrap().len(), 2);
+    }
+
+    #[test]
+    fn searchmoves_do_not_consume_following_limits() {
+        let board = Board::starting_position();
+        let (limits, searchmoves) = parse_go(&board, &["searchmoves", "e2e4", "wtime", "1000"]);
+
+        assert!(matches!(limits, Limits::Fischer(1000, 0)));
+        assert_eq!(searchmoves.unwrap().len(), 1);
+    }
+
+    #[test]
+    fn parses_frc_castling_by_landing_square() {
+        let mut board = Board::from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").unwrap();
+        board.set_frc(true);
+        assert!(find_move(&board, "e1g1").is_some());
+        assert!(find_move(&board, "e1h1").is_some());
+        assert!(find_move(&board, "e1c1").is_some());
+        assert!(find_move(&board, "e1a1").is_some());
     }
 }

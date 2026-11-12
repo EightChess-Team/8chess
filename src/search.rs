@@ -1381,9 +1381,9 @@ fn qsearch<NODE: NodeType>(td: &mut ThreadData, mut alpha: i32, beta: i32, ply: 
     let mut move_count = 0;
     let mut move_picker = MovePicker::new(Move::NULL, None);
 
-    let skip_quiets = |best_score| !in_check || !is_loss(best_score);
+    let skip_quiets = !in_check;
 
-    while let Some(mv) = move_picker.next::<NODE>(td, skip_quiets(best_score), ply) {
+    while let Some(mv) = move_picker.next::<NODE>(td, skip_quiets, ply) {
         move_count += 1;
 
         let history = if mv.is_quiet() {
@@ -1393,8 +1393,8 @@ fn qsearch<NODE: NodeType>(td: &mut ThreadData, mut alpha: i32, beta: i32, ply: 
         };
 
         if !is_loss(best_score) {
-            // Late Move Pruning (LMP)
-            if move_count >= 3 && !td.board.is_direct_check(mv) {
+            // Late Move Pruning (LMP). In check every evasion must be searched.
+            if !in_check && move_count >= 3 && !td.board.is_direct_check(mv) {
                 break;
             }
 

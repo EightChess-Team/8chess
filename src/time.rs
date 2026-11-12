@@ -34,6 +34,7 @@ impl TimeManager {
 
         match limits {
             Limits::Time(ms) => {
+                let ms = ms.saturating_sub(move_overhead);
                 soft = ms;
                 hard = ms;
             }
@@ -76,7 +77,7 @@ impl TimeManager {
         match self.limits {
             Limits::Infinite | Limits::Depth(_) | Limits::Mate(_) => false,
             Limits::Nodes(maximum) => td.shared.nodes.aggregate() >= maximum,
-            Limits::Time(maximum) => self.start_time.elapsed() >= Duration::from_millis(maximum),
+            Limits::Time(_) => self.start_time.elapsed() >= self.soft_bound,
             _ => self.start_time.elapsed() >= Duration::from_secs_f32(self.soft_bound.as_secs_f32() * multiplier()),
         }
     }
