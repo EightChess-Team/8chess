@@ -1,144 +1,328 @@
-name: Reckless Releases
+name: 8Chess Releases
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
 
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Build for ${{ matrix.name }}
+    name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            name: reckless-linux-generic
+          - name: linux-x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
             rustflags: "-C target-cpu=x86-64"
-
-          - os: ubuntu-latest
-            name: reckless-linux-avx2
+            builder: cargo
+            platform: unix
+            archive: tar.gz
+          - name: linux-x86_64-v3
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
             rustflags: "-C target-cpu=x86-64-v3"
-            sde_flag: -bdw
-
-          - os: ubuntu-latest
-            name: reckless-linux-avx512
-            rustflags: "-C target-cpu=x86-64-v4 -C target-feature=+gfni,+avx512bw,+avx512vl,+avx512vbmi,+avx512vbmi2,+avx512vnni,+avx512bitalg"
-            sde_flag: -icx
-
-          - os: windows-latest
-            name: reckless-windows-generic
+            builder: cargo
+            platform: unix
+            archive: tar.gz
+          - name: linux-x86_64-v4
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            rustflags: "-C target-cpu=x86-64-v4"
+            builder: cargo
+            platform: unix
+            archive: tar.gz
+          - name: linux-aarch64
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            rustflags: "-C target-cpu=generic"
+            builder: cargo
+            features: --no-default-features
+            platform: unix
+            archive: tar.gz
+          - name: linux-riscv64
+            os: ubuntu-latest
+            target: riscv64gc-unknown-linux-gnu
+            rustflags: "-C target-cpu=generic-rv64"
+            builder: cross
+            features: --no-default-features
+            platform: unix
+            archive: tar.gz
+          - name: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
             rustflags: "-C target-cpu=x86-64"
-
-          - os: windows-latest
-            name: reckless-windows-avx2
+            builder: cargo
+            platform: windows
+            archive: zip
+          - name: windows-x86_64-v3
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
             rustflags: "-C target-cpu=x86-64-v3"
-            sde_flag: -bdw
-
-          - os: windows-latest
-            name: reckless-windows-avx512
-            rustflags: "-C target-cpu=x86-64-v4 -C target-feature=+gfni,+avx512bw,+avx512vl,+avx512vbmi,+avx512vbmi2,+avx512vnni,+avx512bitalg"
-            sde_flag: -icx
-
-          - os: macos-latest
-            name: reckless-macos
-            rustflags: "-C target-cpu=native"
+            builder: cargo
+            platform: windows
+            archive: zip
+          - name: windows-x86_64-v4
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            rustflags: "-C target-cpu=x86-64-v4"
+            builder: cargo
+            platform: windows
+            archive: zip
+          - name: windows-aarch64
+            os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            rustflags: "-C target-cpu=generic"
+            builder: cargo
+            platform: windows
+            archive: zip
+          - name: android-arm64
+            os: ubuntu-latest
+            target: aarch64-linux-android
+            android_abi: arm64-v8a
+            rustflags: "-C target-cpu=generic"
+            builder: android
+            features: --no-default-features
+            platform: unix
+            archive: tar.gz
+          - name: android-armv7
+            os: ubuntu-latest
+            target: armv7-linux-androideabi
+            android_abi: armeabi-v7a
+            rustflags: "-C target-cpu=generic"
+            builder: android
+            features: --no-default-features
+            platform: unix
+            archive: tar.gz
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v5
-
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@1.93.1
-
-      - name: Install dependencies
-        run: |
-          rustup component add llvm-tools
-          cargo install cargo-pgo
-
-      - name: Setup Intel SDE
-        if: matrix.name != 'reckless-macos' && matrix.name != 'reckless-linux-generic' && matrix.name != 'reckless-windows-generic'
-        uses: petarpetrovt/setup-sde@v5.0
         with:
-          sdeVersion: "9.58.0"
-          environmentVariableName: SDE_PATH
+          lfs: true
 
-      - name: Instrument build for PGO
-        run: |
-          cargo pgo instrument
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-      - name: Run PGO profiling benchmarks
-        if: matrix.name == 'reckless-linux-avx2' || matrix.name == 'reckless-linux-avx512'
-        run: |
-          "$SDE_PATH/sde64" ${{ matrix.sde_flag }} -- cargo pgo run -- bench
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
+      - name: Install cross
+        if: matrix.builder == 'cross'
+        run: cargo install cross --locked
 
-      - name: Run PGO profiling benchmarks
-        if: matrix.name == 'reckless-windows-avx2' || matrix.name == 'reckless-windows-avx512'
-        shell: cmd
-        run: |
-          "%SDE_PATH%\sde.exe" ${{ matrix.sde_flag }} -- cargo pgo run -- bench
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
+      - name: Install Zig
+        if: matrix.builder == 'zig'
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
 
-      - name: Run PGO profiling benchmarks
-        if: matrix.name == 'reckless-macos' || matrix.name == 'reckless-linux-generic' || matrix.name == 'reckless-windows-generic'
-        run: |
-          cargo pgo run -- bench
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
+      - name: Install cargo-zigbuild
+        if: matrix.builder == 'zig'
+        run: cargo install cargo-zigbuild --locked
 
-      - name: Optimize build with PGO
-        run: |
-          cargo pgo optimize
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
+      - name: Setup Android
+        if: matrix.builder == 'android'
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
 
-      - name: Rename binary with platform suffix
+      - name: Install Android NDK
+        if: matrix.builder == 'android'
         shell: bash
+        run: sdkmanager --install "ndk;27.2.12479018"
+
+      - name: Install cargo-ndk
+        if: matrix.builder == 'android'
+        run: cargo install cargo-ndk --locked
+
+      - name: Build cargo target
+        if: matrix.builder == 'cargo'
+        shell: bash
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+          TARGET: ${{ matrix.target }}
+          FEATURES: ${{ matrix.features }}
+        run: cargo build --release --target "$TARGET" $FEATURES
+
+      - name: Build cross target
+        if: matrix.builder == 'cross'
+        shell: bash
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+          TARGET: ${{ matrix.target }}
+          FEATURES: ${{ matrix.features }}
+          LINKER: ${{ matrix.linker }}
         run: |
-          tuple=$(rustc --print host-tuple)
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            mv target\\$tuple\\release\\reckless.exe ${{ matrix.name }}.exe
+          if [ -n "$LINKER" ]; then
+            CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_GNU_LINKER="$LINKER" cross build --release --target "$TARGET" $FEATURES
           else
-            mv target/$tuple/release/reckless ${{ matrix.name }}
+            cross build --release --target "$TARGET" $FEATURES
           fi
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v5.0.0
+      - name: Build Zig target
+        if: matrix.builder == 'zig'
+        shell: bash
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+          TARGET: ${{ matrix.target }}
+          FEATURES: ${{ matrix.features }}
+        run: cargo zigbuild --release --target "$TARGET" $FEATURES
+
+      - name: Build Android target
+        if: matrix.builder == 'android'
+        shell: bash
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+          TARGET: ${{ matrix.target }}
+          ANDROID_ABI: ${{ matrix.android_abi }}
+          FEATURES: ${{ matrix.features }}
+        run: cargo ndk -t "$ANDROID_ABI" build --release --target "$TARGET" $FEATURES
+
+      - name: Package Unix binary
+        if: matrix.platform == 'unix'
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          ASSET: ${{ matrix.name }}
+        run: |
+          mkdir -p package
+          cp "target/$TARGET/release/eightchess" package/eightchess
+          tar -C package -czf "$ASSET.tar.gz" eightchess
+          sha256sum "$ASSET.tar.gz" > "$ASSET.tar.gz.sha256"
+
+      - name: Package Windows binary
+        if: matrix.platform == 'windows'
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          ASSET: ${{ matrix.name }}
+        run: |
+          mkdir -p package
+          cp "target/$TARGET/release/eightchess.exe" package/eightchess.exe
+          7z a "$ASSET.zip" package/eightchess.exe
+          sha256sum "$ASSET.zip" > "$ASSET.zip.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
           path: |
-            ${{ matrix.name }}
-            ${{ matrix.name }}.exe
-          retention-days: 1
+            *.tar.gz
+            *.tar.gz.sha256
+            *.zip
+            *.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
 
-  release:
-    name: Development release
-    needs: build
+  macos-universal:
+    name: Build macOS universal
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          lfs: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - name: Build Intel binary
+        run: cargo build --release --target x86_64-apple-darwin --no-default-features
+        env:
+          RUSTFLAGS: "-C target-cpu=x86-64"
+
+      - name: Build Apple Silicon binary
+        run: cargo build --release --target aarch64-apple-darwin --no-default-features
+        env:
+          RUSTFLAGS: "-C target-cpu=generic"
+
+      - name: Create universal package
+        run: |
+          mkdir -p package
+          lipo -create \
+            target/x86_64-apple-darwin/release/eightchess \
+            target/aarch64-apple-darwin/release/eightchess \
+            -output package/eightchess
+          tar -C package -czf macos-universal.tar.gz eightchess
+          shasum -a 256 macos-universal.tar.gz > macos-universal.tar.gz.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal
+          path: |
+            macos-universal.tar.gz
+            macos-universal.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  wasm:
+    name: Build WebAssembly
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v5
+        with:
+          lfs: true
 
-      - name: Get short SHA hash
-        id: hash
-        run: echo "COMMIT_SHA=$(git rev-parse HEAD | cut -c 1-8)" >> $GITHUB_ENV
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: wasm32-unknown-unknown
+          components: rust-src
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v6.0.0
+      - name: Install wasm-bindgen
+        run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
+
+      - name: Install wasm-opt
+        shell: bash
+        run: |
+          curl -fsSL https://github.com/WebAssembly/binaryen/releases/download/version_130/binaryen-version_130-x86_64-linux.tar.gz | tar xz
+          echo "$PWD/binaryen-version_130/bin" >> "$GITHUB_PATH"
+
+      - name: Build WASM package
+        run: make wasm
+
+      - name: Package WASM
+        run: |
+          tar -C pkg -czf wasm-web.tar.gz .
+          sha256sum wasm-web.tar.gz > wasm-web.tar.gz.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-web
+          path: |
+            wasm-web.tar.gz
+            wasm-web.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, macos-universal, wasm]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2.4.1
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
         with:
-          name: Reckless 0.9.0-dev-${{ env.COMMIT_SHA }}
-          draft: true
-          prerelease: true
-          files: artifacts/**/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: true
+          files: artifacts/*
