@@ -42,15 +42,15 @@
       <div class="news-list">
         <article class="news-card news-card--latest">
           <div class="news-card-head">
-            <span class="news-tag">Beta · Source only</span>
+            <span class="news-tag">Release</span>
             <span class="news-date">November 2026</span>
           </div>
-          <h2>8Chess v2 Beta is out</h2>
-          <p>The v2 beta branch is now public on GitHub. It ships the engine correction pass (qsearch, SEE, draw score, time management, FT gradient fix), SIMD/PGO optimization, and the revived 1024-wide NNUE capacity. Beta builds are source-only — there is no release binary yet. Clone the <code>beta</code> branch and compile from scratch.</p>
-          <p>Training on the v2 net (1B+ positions, 2×T4) is in progress. A full release with binaries will follow once training and match verification complete.</p>
+          <h2>8Chess v2 is released</h2>
+          <p>8Chess v2 is out. It ships the engine correction pass (qsearch, SEE, draw score, time management, FT gradient fix), SIMD/PGO optimization (880k nps), Syzygy tablebase support, and the refined NNUE network. Universal binaries are available for Linux, macOS, and Windows — each detects your CPU and uses the best available SIMD automatically. A WebAssembly build is also available for browser play.</p>
+          <p>Match results vs Stockfish 19 are published in the <a href="https://github.com/EightChess-Team/8chess">repository</a>. The <code>v2</code> branch is now the default.</p>
           <div class="actions">
-            <a class="button primary" href="https://github.com/EightChess-Team/8chess/tree/beta">View beta source</a>
-            <a class="button secondary" href="https://github.com/EightChess-Team/8chess/blob/beta/README.md">Build instructions</a>
+            <a class="button primary" href="https://github.com/EightChess-Team/8chess/releases">Download v2</a>
+            <a class="button secondary" href="https://github.com/EightChess-Team/8chess">Source code</a>
           </div>
         </article>
 
