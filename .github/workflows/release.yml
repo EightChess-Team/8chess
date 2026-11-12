@@ -1,48 +1,78 @@
-name: Reckless Releases
+name: 8Chess Releases
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    name: Build for ${{ matrix.name }}
+    name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
+          # Linux x86-64
           - os: ubuntu-latest
-            name: reckless-linux-generic
+            name: linux-x86_64-generic
             rustflags: "-C target-cpu=x86-64"
-
+            target: x86_64-unknown-linux-gnu
           - os: ubuntu-latest
-            name: reckless-linux-avx2
+            name: linux-x86_64-avx2
             rustflags: "-C target-cpu=x86-64-v3"
+            target: x86_64-unknown-linux-gnu
             sde_flag: -bdw
-
           - os: ubuntu-latest
-            name: reckless-linux-avx512
+            name: linux-x86_64-avx512
             rustflags: "-C target-cpu=x86-64-v4 -C target-feature=+gfni,+avx512bw,+avx512vl,+avx512vbmi,+avx512vbmi2,+avx512vnni,+avx512bitalg"
+            target: x86_64-unknown-linux-gnu
             sde_flag: -icx
-
-          - os: windows-latest
-            name: reckless-windows-generic
-            rustflags: "-C target-cpu=x86-64"
-
-          - os: windows-latest
-            name: reckless-windows-avx2
-            rustflags: "-C target-cpu=x86-64-v3"
-            sde_flag: -bdw
-
-          - os: windows-latest
-            name: reckless-windows-avx512
-            rustflags: "-C target-cpu=x86-64-v4 -C target-feature=+gfni,+avx512bw,+avx512vl,+avx512vbmi,+avx512vbmi2,+avx512vnni,+avx512bitalg"
-            sde_flag: -icx
-
-          - os: macos-latest
-            name: reckless-macos
+          # Linux ARM64
+          - os: ubuntu-24.04-arm
+            name: linux-aarch64
             rustflags: "-C target-cpu=native"
+            target: aarch64-unknown-linux-gnu
+          # Linux RISC-V
+          - os: ubuntu-latest
+            name: linux-riscv64
+            rustflags: "-C target-cpu=generic-rv64"
+            target: riscv64gc-unknown-linux-gnu
+            cross: true
+          # Windows x86-64
+          - os: windows-latest
+            name: windows-x86_64-generic
+            rustflags: "-C target-cpu=x86-64"
+            target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            name: windows-x86_64-avx2
+            rustflags: "-C target-cpu=x86-64-v3"
+            target: x86_64-pc-windows-msvc
+            sde_flag: -bdw
+          - os: windows-latest
+            name: windows-x86_64-avx512
+            rustflags: "-C target-cpu=x86-64-v4 -C target-feature=+gfni,+avx512bw,+avx512vl,+avx512vbmi,+avx512vbmi2,+avx512vnni,+avx512bitalg"
+            target: x86_64-pc-windows-msvc
+            sde_flag: -icx
+          # Windows ARM64
+          - os: windows-11-arm
+            name: windows-aarch64
+            rustflags: "-C target-cpu=native"
+            target: aarch64-pc-windows-msvc
+          # macOS Intel
+          - os: macos-13
+            name: macos-x86_64
+            rustflags: "-C target-cpu=native"
+            target: x86_64-apple-darwin
+          # macOS Apple Silicon
+          - os: macos-latest
+            name: macos-aarch64
+            rustflags: "-C target-cpu=native"
+            target: aarch64-apple-darwin
 
     steps:
       - name: Checkout repository
@@ -50,14 +80,23 @@ jobs:
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@1.93.1
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Install dependencies
         run: |
           rustup component add llvm-tools
           cargo install cargo-pgo
+        shell: bash
+
+      - name: Install cross-compilation tools
+        if: matrix.cross == true
+        run: |
+          cargo install cross
+        shell: bash
 
       - name: Setup Intel SDE
-        if: matrix.name != 'reckless-macos' && matrix.name != 'reckless-linux-generic' && matrix.name != 'reckless-windows-generic'
+        if: matrix.sde_flag != ''
         uses: petarpetrovt/setup-sde@v5.0
         with:
           sdeVersion: "9.58.0"
@@ -65,46 +104,57 @@ jobs:
 
       - name: Instrument build for PGO
         run: |
-          cargo pgo instrument
+          cargo pgo instrument --target ${{ matrix.target }}
         env:
           RUSTFLAGS: "${{ matrix.rustflags }}"
+        shell: bash
 
       - name: Run PGO profiling benchmarks
-        if: matrix.name == 'reckless-linux-avx2' || matrix.name == 'reckless-linux-avx512'
+        if: matrix.sde_flag != ''
         run: |
-          "$SDE_PATH/sde64" ${{ matrix.sde_flag }} -- cargo pgo run -- bench
+          "$SDE_PATH/sde64" ${{ matrix.sde_flag }} -- cargo pgo run --target ${{ matrix.target }} -- bench
         env:
           RUSTFLAGS: "${{ matrix.rustflags }}"
+        shell: bash
 
       - name: Run PGO profiling benchmarks
-        if: matrix.name == 'reckless-windows-avx2' || matrix.name == 'reckless-windows-avx512'
-        shell: cmd
+        if: matrix.sde_flag == ''
         run: |
-          "%SDE_PATH%\sde.exe" ${{ matrix.sde_flag }} -- cargo pgo run -- bench
+          cargo pgo run --target ${{ matrix.target }} -- bench
         env:
           RUSTFLAGS: "${{ matrix.rustflags }}"
-
-      - name: Run PGO profiling benchmarks
-        if: matrix.name == 'reckless-macos' || matrix.name == 'reckless-linux-generic' || matrix.name == 'reckless-windows-generic'
-        run: |
-          cargo pgo run -- bench
-        env:
-          RUSTFLAGS: "${{ matrix.rustflags }}"
+        shell: bash
 
       - name: Optimize build with PGO
         run: |
-          cargo pgo optimize
+          cargo pgo optimize --target ${{ matrix.target }}
         env:
           RUSTFLAGS: "${{ matrix.rustflags }}"
+        shell: bash
+
+      - name: Build binary
+        if: matrix.cross != true
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+        env:
+          RUSTFLAGS: "${{ matrix.rustflags }}"
+        shell: bash
+
+      - name: Build binary (cross)
+        if: matrix.cross == true
+        run: |
+          cross build --release --target ${{ matrix.target }}
+        env:
+          RUSTFLAGS: "${{ matrix.rustflags }}"
+        shell: bash
 
       - name: Rename binary with platform suffix
         shell: bash
         run: |
-          tuple=$(rustc --print host-tuple)
           if [ "${{ runner.os }}" = "Windows" ]; then
-            mv target\\$tuple\\release\\reckless.exe ${{ matrix.name }}.exe
+            mv target/${{ matrix.target }}/release/eightchess.exe ${{ matrix.name }}.exe
           else
-            mv target/$tuple/release/reckless ${{ matrix.name }}
+            mv target/${{ matrix.target }}/release/eightchess ${{ matrix.name }}
           fi
 
       - name: Upload build artifacts
@@ -114,10 +164,10 @@ jobs:
           path: |
             ${{ matrix.name }}
             ${{ matrix.name }}.exe
-          retention-days: 1
+          retention-days: 7
 
   release:
-    name: Development release
+    name: Create release
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -136,7 +186,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2.4.1
         with:
-          name: Reckless 0.9.0-dev-${{ env.COMMIT_SHA }}
+          name: 8Chess 2.0.0-dev-${{ env.COMMIT_SHA }}
           draft: true
           prerelease: true
           files: artifacts/**/*
