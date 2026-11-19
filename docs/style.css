@@ -1,0 +1,63 @@
+
+/* UCI flow diagram */
+.uci-flow {
+  display: flex; align-items: center; justify-content: center;
+  gap: 1.5rem; flex-wrap: wrap; margin: 2rem 0;
+}
+.uci-flow-box {
+  background: var(--card, #fff); border: 1px solid var(--border, #ddd);
+  border-radius: 12px; padding: 1rem 1.25rem; min-width: 200px;
+}
+.uci-flow-box--engine { border-color: #89b4fa; }
+.uci-flow-title {
+  font-weight: 600; font-size: 0.95rem; margin-bottom: 0.6rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.uci-flow-items { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.uci-flow-item {
+  background: var(--bg, #f4f1e9); border-radius: 6px;
+  padding: 0.3rem 0.6rem; font-size: 0.8rem;
+}
+.uci-flow-eval { background: #a6e3a1; color: #1e1e2e; font-weight: 600; }
+.uci-flow-move { background: #89b4fa; color: #1e1e2e; font-weight: 600; }
+.uci-flow-arrow {
+  font-size: 1rem; font-weight: 600; color: var(--muted, #666);
+  white-space: nowrap;
+}
+
+/* UCI demo */
+.uci-demo { margin-top: 2rem; }
+.uci-demo-card {
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #ddd);
+  border-radius: 12px; padding: 1.25rem;
+  max-width: 640px; margin: 0 auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.uci-demo-head {
+  display: flex; align-items: center; gap: 0.6rem;
+  font-weight: 600; font-size: 0.95rem; margin-bottom: 0.75rem;
+  color: var(--text, #222);
+}
+.uci-demo-code {
+  background: #1e1e2e; color: #cdd6f4;
+  padding: 1rem; border-radius: 8px; overflow-x: auto;
+  font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem; line-height: 1.6;
+  margin: 0;
+}
+.uci-in { color: #89b4fa; }
+.uci-out { color: #a6e3a1; }
+.uci-demo-note { margin-top: 0.75rem; font-size: 0.85rem; color: var(--muted, #666); }
+
+/* Compat grid */
+.compat-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem; margin-top: 1.5rem;
+}
+.compat-card {
+  background: var(--card, #fff); border: 1px solid var(--border, #ddd);
+  border-radius: 10px; padding: 1rem; text-align: center;
+}
+.compat-icon { font-size: 1.6rem; display: block; margin-bottom: 0.4rem; }
+.compat-card strong { display: block; font-size: 0.95rem; }
+.compat-card small { display: block; font-size: 0.78rem; color: var(--muted, #666); margin-top: 0.2rem; }
