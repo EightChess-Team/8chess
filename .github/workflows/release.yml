@@ -30,10 +30,15 @@ jobs:
             name: linux-x86_64-avx512
             rustflags: "-C target-cpu=x86-64-v4 -C target-feature=+gfni,+avx512bw,+avx512vl,+avx512vbmi,+avx512vbmi2,+avx512vnni,+avx512bitalg"
             target: x86_64-unknown-linux-gnu
-          # Linux ARM64
+          # Linux ARM64 (universal: Cortex-A72 baseline, no dotprod)
           - os: ubuntu-24.04-arm
             name: linux-aarch64
-            rustflags: "-C target-cpu=native"
+            rustflags: "-C target-cpu=cortex-a72"
+            target: aarch64-unknown-linux-gnu
+          # Linux ARM64 (dotprod: Graviton 2+, Ampere Altra+, no SVE)
+          - os: ubuntu-24.04-arm
+            name: linux-aarch64-dotprod
+            rustflags: "-C target-cpu=neoverse-n1"
             target: aarch64-unknown-linux-gnu
           # Windows x86-64
           - os: windows-latest
@@ -48,21 +53,26 @@ jobs:
             name: windows-x86_64-avx512
             rustflags: "-C target-cpu=x86-64-v4 -C target-feature=+gfni,+avx512bw,+avx512vl,+avx512vbmi,+avx512vbmi2,+avx512vnni,+avx512bitalg"
             target: x86_64-pc-windows-msvc
-          # Windows ARM64
+          # Windows ARM64 (universal: generic baseline, no dotprod)
           - os: windows-11-arm
             name: windows-aarch64
-            rustflags: "-C target-cpu=native"
+            rustflags: "-C target-cpu=generic"
             target: aarch64-pc-windows-msvc
-          # macOS Intel (no syzygy — clang issues on x86_64 runner)
+          # Windows ARM64 (dotprod)
+          - os: windows-11-arm
+            name: windows-aarch64-dotprod
+            rustflags: "-C target-feature=+dotprod"
+            target: aarch64-pc-windows-msvc
+          # macOS Intel (x86-64-v2 baseline, no syzygy)
           - os: macos-13
             name: macos-x86_64
-            rustflags: "-C target-cpu=native"
+            rustflags: "-C target-cpu=x86-64-v2"
             target: x86_64-apple-darwin
             no_syzygy: true
-          # macOS Apple Silicon
+          # macOS Apple Silicon (apple-m1 baseline = dotprod on all M-series)
           - os: macos-latest
             name: macos-aarch64
-            rustflags: "-C target-cpu=native"
+            rustflags: "-C target-cpu=apple-m1"
             target: aarch64-apple-darwin
           # WASM
           - os: ubuntu-latest
