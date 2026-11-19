@@ -1,0 +1,17 @@
+{
+ "id": "srinivaskasukurthy/eightchess-v3-train",
+ "title": "EightChess V3 Train",
+ "code_file": "eightchess_v3_train.ipynb",
+ "language": "python",
+ "kernel_type": "notebook",
+ "is_private": "true",
+ "enable_gpu": "true",
+ "enable_tpu": "false",
+ "enable_internet": "true",
+ "dataset_sources": [
+  "hemeshchesskas/8chess-sf-mixed",
+  "hemeshchesskas/8chess-training-code-v2"
+ ],
+ "competition_sources": [],
+ "kernel_sources": []
+}
