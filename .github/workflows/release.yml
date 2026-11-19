@@ -53,6 +53,12 @@ jobs:
             name: windows-aarch64
             rustflags: "-C target-cpu=native"
             target: aarch64-pc-windows-msvc
+          # macOS Intel (no syzygy — clang issues on x86_64 runner)
+          - os: macos-13
+            name: macos-x86_64
+            rustflags: "-C target-cpu=native"
+            target: x86_64-apple-darwin
+            no_syzygy: true
           # macOS Apple Silicon
           - os: macos-latest
             name: macos-aarch64
@@ -138,9 +144,31 @@ jobs:
             pkg/
           retention-days: 7
 
+
+  build-macos-universal:
+    name: Build macOS Universal Binary
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v6.0.0
+        with:
+          path: artifacts
+      - name: Create universal binary
+        run: |
+          lipo -create artifacts/macos-x86_64/macos-x86_64 artifacts/macos-aarch64/macos-aarch64 -output eightchess-macos-universal
+          chmod +x eightchess-macos-universal
+          file eightchess-macos-universal
+      - name: Upload universal binary
+        uses: actions/upload-artifact@v5.0.0
+        with:
+          name: macos-universal
+          path: eightchess-macos-universal
+          retention-days: 7
+
   release:
     name: Create release
-    needs: build
+    needs: [build, build-macos-universal]
     permissions:
       contents: write
     runs-on: ubuntu-latest
