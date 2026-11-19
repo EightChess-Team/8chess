@@ -51,6 +51,75 @@
       </div>
     </section>
 
+    <section class="section" id="what">
+      <div class="section-heading">
+        <p class="eyebrow">What is 8Chess?</p>
+        <h2>A chess engine that speaks UCI.</h2>
+        <p>8Chess is a self-contained chess engine written in Rust. It evaluates positions with a 1024-wide NNUE neural network baked directly into the binary — no network file needed at runtime. It communicates via the <strong>UCI (Universal Chess Interface)</strong> protocol, so any GUI that supports UCI can use it instantly.</p>
+      </div>
+      <div class="uci-demo">
+        <div class="uci-demo-card">
+          <div class="uci-demo-head">
+            <img src="logo.svg" alt="8Chess" width="28" height="28">
+            <span>8Chess v2 — UCI session</span>
+          </div>
+          <pre class="uci-demo-code"><code><span class="uci-in">&gt; uci</span>
+id name 8Chess 2.0.0
+option name Threads type spin default 1
+option name Hash type spin default 64
+option name EvalFile type string default &lt;internal&gt;
+<span class="uci-out">uciok</span>
+<span class="uci-in">&gt; position startpos moves e2e4 e7e5 g1f3</span>
+<span class="uci-in">&gt; go depth 12</span>
+<span class="uci-out">info depth 12 score cp 34 nodes 284512 nps 882000 pv b8c6 f1b5 a7a6</span>
+<span class="uci-out">bestmove b8c6</span>
+<span class="uci-in">&gt; evalnum</span>
+<span class="uci-out">info string eval: +0.34 (centipawns, side to move)</span></code></pre>
+          <p class="uci-demo-note">The engine reports its <strong>evaluation</strong> (in centipawns) and <strong>best move</strong> (in UCI notation). Any GUI reads these and displays them to you.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="compat">
+      <div class="section-heading">
+        <p class="eyebrow">Works everywhere</p>
+        <h2>Plug into any chess GUI.</h2>
+        <p>Because 8Chess speaks UCI, it works out of the box with every major chess interface. No plugins, no adapters.</p>
+      </div>
+      <div class="compat-grid">
+        <div class="compat-card">
+          <span class="compat-icon">♟</span>
+          <strong>Arena</strong>
+          <small>Windows · Linux</small>
+        </div>
+        <div class="compat-card">
+          <span class="compat-icon">♞</span>
+          <strong>ChessBase / Fritz</strong>
+          <small>Windows</small>
+        </div>
+        <div class="compat-card">
+          <span class="compat-icon">♝</span>
+          <strong>Lichess (analysis board)</strong>
+          <small>Browser · UCI via local engine</small>
+        </div>
+        <div class="compat-card">
+          <span class="compat-icon">♛</span>
+          <strong>Cute Chess</strong>
+          <small>Windows · macOS · Linux</small>
+        </div>
+        <div class="compat-card">
+          <span class="compat-icon">♚</span>
+          <strong>Lucas Chess</strong>
+          <small>Windows · Linux</small>
+        </div>
+        <div class="compat-card">
+          <span class="compat-icon">♜</span>
+          <strong>Any UCI GUI</strong>
+          <small>If it speaks UCI, it works</small>
+        </div>
+      </div>
+    </section>
+
     <section class="section" id="play">
       <div class="section-heading">
         <p class="eyebrow">No install needed</p>
