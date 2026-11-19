@@ -151,6 +151,6 @@ class EightChessNNUE(nn.Module):
         return self.forward(*args) * NETWORK_SCALE
 
 
-def wdl_from_cp(score_cp: torch.Tensor, temperature: float = 173.72) -> torch.Tensor:
+def wdl_from_cp(score_cp: torch.Tensor, temperature: float = 410.0) -> torch.Tensor:
     """Expected score from centipawns via a logistic link (Elo == cp)."""
     return torch.sigmoid(score_cp / temperature)

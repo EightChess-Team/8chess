@@ -217,7 +217,12 @@ def main() -> int:
     parser.add_argument("--head-lr-scale", type=float, default=None, help="LR multiplier for head (L1 bias, L2, L3) when soft-freezing")
     parser.add_argument("--freeze-base-ft", action="store_true", help="freeze original 768 FT channels (0..384, 512..896)")
     parser.add_argument("--freeze-backbone", action="store_true", help="freeze entire 768 backbone (FT_old, L1_old, L2, L3) and train only the 256 new residual channels")
-    parser.add_argument("--temperature", type=float, default=173.72)
+    parser.add_argument("--temperature", type=float, default=410.0,
+                        help="WDL temperature; must match the scaling used to build shard targets (default 410)")
+    parser.add_argument("--reset-optimizer", action="store_true",
+                        help="on --resume, keep model weights but start a fresh optimizer")
+    parser.add_argument("--reset-scheduler", action="store_true",
+                        help="on --resume, keep model weights but start a fresh LR schedule")
     parser.add_argument("--export-every", type=int, default=1, help="export .nnue every N epochs")
     parser.add_argument("--save-every-shards", type=int, default=0, help="checkpoint/export every N shards (0 = only per epoch)")
     parser.add_argument("--max-shards", type=int, default=0, help="stop after this many shards per epoch (0 = all)")
@@ -246,6 +251,7 @@ def main() -> int:
     print(f"{len(train_shards)} shards, {total_train:,} positions")
 
     val_shards: list[str] = []
+    train_sizes = list(sizes)
     if args.val:
         val_shards = resolve_shards(args.val)
         print(f"{len(val_shards)} validation shards")
@@ -253,7 +259,8 @@ def main() -> int:
         step = max(2, int(round(1.0 / args.val_frac)))
         val_shards = train_shards[::step]
         train_shards = [p for i, p in enumerate(train_shards) if i % step != 0]
-        total_train = int(sum(shard_positions(p) for p in train_shards))
+        train_sizes = [sizes[i] for i in range(len(sizes)) if i % step != 0]
+        total_train = int(sum(train_sizes))
         print(f"held out {len(val_shards)} validation shards; {total_train:,} training positions")
 
     start_epoch = 1
@@ -308,12 +315,18 @@ def main() -> int:
     if args.freeze_backbone and head_low_params:
         opt_groups.append({"params": head_low_params, "lr": args.lr * head_lr_scale, "weight_decay": head_wd})
     optimizer = AdamW(opt_groups)
-    steps_per_epoch = (total_train // args.batch_size + 1) * args.epochs
-    scheduler = CosineAnnealingLR(optimizer, T_max=steps_per_epoch, eta_min=1e-6)
+    steps_per_epoch = sum((n + args.batch_size - 1) // args.batch_size for n in train_sizes)
+    scheduler = CosineAnnealingLR(optimizer, T_max=max(1, steps_per_epoch * args.epochs), eta_min=1e-6)
     if args.resume and "optimizer" in ckpt:
-        optimizer.load_state_dict(ckpt["optimizer"])
-    if args.resume and "scheduler" in ckpt:
+        if not args.reset_optimizer and "optimizer" in ckpt:
+            optimizer.load_state_dict(ckpt["optimizer"])
+        else:
+            print("  (starting fresh optimizer)", flush=True)
+    if args.resume and "scheduler" in ckpt and not args.reset_scheduler:
         scheduler.load_state_dict(ckpt["scheduler"])
+    else:
+        if args.resume:
+            print("  (starting fresh LR schedule)", flush=True)
 
     run_start = time.time()
     stop_requested = False
@@ -387,7 +400,7 @@ def main() -> int:
 
             if args.save_every_shards and shards_done % args.save_every_shards == 0:
                 ckpt_path = os.path.join(args.out_dir, "latest.pt")
-                torch.save({"epoch": epoch, "model": raw_model.state_dict(), "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict()}, ckpt_path)
+                torch.save({"epoch": epoch, "model": raw_model.state_dict(), "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict(), "args": vars(args), "temperature": args.temperature}, ckpt_path)
                 nnue_path = os.path.join(args.out_dir, "latest.nnue")
                 export_nnue(raw_model, nnue_path)
                 elapsed = time.time() - t0
@@ -417,7 +430,7 @@ def main() -> int:
 
         if epoch % args.export_every == 0 or epoch == args.epochs or stop_requested:
             ckpt_path = os.path.join(args.out_dir, f"epoch_{epoch}.pt")
-            torch.save({"epoch": epoch, "model": raw_model.state_dict(), "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict()}, ckpt_path)
+            torch.save({"epoch": epoch, "model": raw_model.state_dict(), "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict(), "args": vars(args), "temperature": args.temperature}, ckpt_path)
             nnue_path = os.path.join(args.out_dir, f"epoch_{epoch}.nnue")
             export_nnue(raw_model, nnue_path)
             print(f"  -> Exported {nnue_path}", flush=True)
