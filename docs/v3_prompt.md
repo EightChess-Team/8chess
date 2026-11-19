@@ -169,3 +169,21 @@ This is weeks of work. The practical approach (used by Stockfish) is separate bi
 - Apply for GCP open-source credits when project has more visibility
 - Consider Modal ($30 free credits) for one-shot experiments
 - Consider OpenBench for distributed match testing (free, community compute)
+
+## v2 ARM64 release findings (Nov 2026)
+
+- **macOS aarch64 was built with `-C target-cpu=native`** on the CI runner, but
+  LLVM's host detection resolved to a generic CPU. The released binary contains
+  **no `sdot` instructions** — it silently used the slow non-dotprod NEON
+  fallback. This is the main Apple Silicon slowdown. Fix: build with
+  `-C target-cpu=apple-m1` (every M-series chip supports dotprod).
+- **Windows ARM64 had the same problem**: no `sdot`, slow fallback. Ship a
+  generic build plus a `-C target-feature=+dotprod` build.
+- **Linux aarch64 with `native` enabled SVE** (the runner is Graviton 3/4),
+  which breaks older ARM servers. Ship `cortex-a72` (universal, no dotprod) and
+  `neoverse-n1` (dotprod, no SVE).
+- **macOS Intel** should use `-C target-cpu=x86-64-v2`; `native` can bake in
+  AVX2/AVX-512 and crash older Macs.
+- Verify every release binary:
+  `llvm-objdump -d <bin> | grep -c sdot` (must be > 0 for dotprod builds) and
+  `grep -c ptrue` (must be 0 unless SVE is intended).
