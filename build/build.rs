@@ -11,7 +11,7 @@ mod magics;
 mod maps;
 
 const BASE_URL: &str = "https://github.com/EightChess-Team/8chess/releases/download/networks";
-const NETWORK_NAME: &str = "eightchess_1024_master.nnue";
+const NETWORK_NAME: &str = "eightchess_1024_tuned768.nnue";
 
 fn main() {
     generate_model_env();
