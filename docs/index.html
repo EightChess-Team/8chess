@@ -52,35 +52,52 @@
     </section>
 
     <!-- WHAT IS 8CHESS -->
-    <section class="section" id="what">
-      <div class="section-heading">
-        <p class="eyebrow">What is 8Chess?</p>
-        <h2>A chess engine that speaks UCI.</h2>
-        <p>8Chess is a self-contained chess engine written in Rust. It evaluates positions with a 1024-wide NNUE neural network baked directly into the binary — no network file needed at runtime. It communicates via the <strong>UCI (Universal Chess Interface)</strong> protocol, so any GUI that supports UCI can use it instantly.</p>
+    <section class="section what-is-section" id="what">
+      <div class="what-is-heading">
+        <p class="eyebrow">The basics</p>
+        <h2>What is 8Chess?</h2>
+        <p>8Chess is a chess engine. It analyzes chess positions, evaluates them, and tries to find the best move. It communicates with chess apps via the UCI protocol.</p>
       </div>
 
-      <div class="uci-flow">
-        <div class="uci-flow-box">
-          <div class="uci-flow-title">Chess GUIs</div>
-          <div class="uci-flow-items">
-            <span class="uci-flow-item">Arena</span>
-            <span class="uci-flow-item">ChessBase / Fritz</span>
-            <span class="uci-flow-item">Lichess</span>
-            <span class="uci-flow-item">Cute Chess</span>
-            <span class="uci-flow-item">Lucas Chess</span>
-            <span class="uci-flow-item">Any UCI GUI</span>
+      <div class="data-flow-container">
+        <div class="flow-step">
+          <div class="flow-icon-wrapper">
+            <svg class="flow-player" viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
+            </svg>
           </div>
+          <div class="flow-label">Player</div>
         </div>
-        <div class="uci-flow-arrow">→ UCI protocol →</div>
-        <div class="uci-flow-box uci-flow-box--engine">
-          <div class="uci-flow-title">
-            <img src="logo.svg" alt="8Chess" width="24" height="24">
-            8Chess v2
+
+        <div class="flow-arrow" aria-hidden="true">→</div>
+
+        <div class="flow-step">
+          <div class="flow-icon-wrapper overlapping-logos">
+            <img src="logos/lichess.svg" alt="Lichess" class="stacked-logo logo-left">
+            <img src="logos/en-croissant.webp" alt="En Croissant" class="stacked-logo logo-right">
           </div>
-          <div class="uci-flow-items">
-            <span class="uci-flow-item uci-flow-eval">eval: +0.34 cp</span>
-            <span class="uci-flow-item uci-flow-move">bestmove: Nf3</span>
+          <div class="flow-label">Chess GUI</div>
+        </div>
+
+        <div class="flow-arrow" aria-hidden="true">→</div>
+
+        <div class="flow-step">
+          <div class="flow-icon-wrapper">
+            <pre class="flow-code"><code>position startpos
+go depth 20</code></pre>
           </div>
+          <div class="flow-label">UCI Protocol</div>
+        </div>
+
+        <div class="flow-arrow" aria-hidden="true">→</div>
+
+        <div class="flow-step">
+          <div class="flow-icon-wrapper engine-icon-wrapper">
+            <img src="logo.svg" alt="8Chess" class="engine-logo">
+            <span class="flow-badge">Eval: +0.34<br>Best Move: Nf3</span>
+          </div>
+          <div class="flow-label">8Chess</div>
         </div>
       </div>
 
