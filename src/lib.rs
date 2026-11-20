@@ -7,10 +7,10 @@
 mod board;
 mod evaluation;
 mod history;
-mod lookup;
+pub mod lookup;
 mod misc;
 mod movepick;
-mod nnue;
+pub mod nnue;
 mod numa;
 mod parameters;
 mod search;
@@ -20,7 +20,7 @@ mod thread;
 mod threadpool;
 mod time;
 mod transposition;
-mod types;
+pub mod types;
 
 mod tools;
 
@@ -42,4 +42,25 @@ pub fn run(buffer: std::collections::VecDeque<String>) {
     lookup::initialize();
     nnue::initialize();
     uci::message_loop(buffer);
+}
+
+
+/// Training helpers exposed for external NNUE trainers (e.g. Bullet).
+/// Initializes the lookup tables required by `threat_index_raw`.
+pub fn init_threat_indexing() {
+    lookup::initialize();
+    nnue::accumulator::threats::initialize();
+}
+
+/// Returns the 8Chess threat feature index for a single (attacker, target) pair,
+/// or -1 if the pair is excluded. `attacking`/`attacked` are engine Piece indices
+/// (piece_type*2 + color). `from`/`to` are squares (0..64). `mirrored` is whether
+/// the king is on the kingside. `pov_white` selects the accumulator POV.
+pub fn threat_index_raw(attacking: u8, from: u8, attacked: u8, to: u8, mirrored: bool, pov_white: bool) -> isize {
+    let piece = types::Piece::from_index(attacking as usize);
+    let attacked_piece = types::Piece::from_index(attacked as usize);
+    let from_sq = types::Square::new(from);
+    let to_sq = types::Square::new(to);
+    let pov = if pov_white { types::Color::White } else { types::Color::Black };
+    nnue::accumulator::threats::threat_index(piece, from_sq, attacked_piece, to_sq, mirrored, pov)
 }

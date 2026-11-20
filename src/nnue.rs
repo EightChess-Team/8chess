@@ -1,4 +1,4 @@
-mod accumulator;
+pub mod accumulator;
 
 pub use accumulator::threats::initialize;
 
