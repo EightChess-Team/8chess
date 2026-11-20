@@ -139,6 +139,17 @@ This is weeks of work. The practical approach (used by Stockfish) is separate bi
 - Don't spend quota on experiments that can't produce a clean result
 - Don't claim 54%+ without 500+ game match evidence
 
+## Match Conditions (v3)
+- Strength matches use **rapid 10+0.1**, not ultra-bullet 1.0+0.01.
+- Runner: `cutechess-cli` 1.5.1 (installed at `~/.local/bin/cutechess-cli`,
+  extracted from the Cute Chess AppImage), via
+  `/tmp/opencode/run_rapid_match.sh NET GAMES CONCURRENCY TC`.
+- 500 games (250 rounds × 2, colors swapped per opening), 20-book openings
+  (`/tmp/opencode/openings.pgn`), seed 424242, `maxmoves 200`, `timemargin 200`.
+- The 1.0+0.01 TC is kept only for fast data generation, never for strength claims.
+- Re-baseline the champion vs SF19 at 10+0.1 before comparing v3 to the
+  champion's historical 47.3% (that number was measured at 1.0+0.01).
+
 ## Success Criteria
 - v3 net scores ≥ 47.3% vs SF19 (champion level) — minimum bar
 - v3 net scores ≥ 54% vs SF19 (+47 Elo) — target
