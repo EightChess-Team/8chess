@@ -132,14 +132,14 @@ fn main() {
 
     let data_path = std::env::args().nth(1).unwrap_or_else(|| "data.bullet".to_string());
     let dataloader = DirectSequentialDataLoader::new(&[data_path.as_str()]);
-    let readmap = ReadMapLoader::new(dataloader, mapper, 4);
+    let readmap = ReadMapLoader::new(dataloader, mapper, 32);
 
     let schedule = TrainingSchedule {
         steps: TrainingSteps {
             batch_size: 16384,
-            batches_per_superbatch: 6104 / 4, // adjust
+            batches_per_superbatch: 1,
             start_superbatch: 1,
-            end_superbatch: 800,
+            end_superbatch: 1,
         },
         lr_schedule: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.00003, final_superbatch: 800 }.boxed(),
         log_rate: 64,

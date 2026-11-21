@@ -56,7 +56,6 @@ pub fn piece_indices(pos: &ChessBoard) -> (Vec<usize>, Vec<usize>) {
 
 /// Returns (white_pov_indices, black_pov_indices) for threat features.
 pub fn threat_indices(pos: &ChessBoard) -> (Vec<usize>, Vec<usize>) {
-    eightchess::init_threat_indexing();
     let wk = king_square(pos, true);
     let bk = king_square(pos, false);
 
