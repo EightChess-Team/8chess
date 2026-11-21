@@ -73,11 +73,11 @@ fn main() {
     let mut optimiser = Optimiser::<_, AdamW<_>>::new(defn, weights, device.clone(), params).unwrap();
 
     let saved_format = vec![
-        SavedFormat::id("l0tw").transpose().round().quantise::<i8>(Q_FT),
-        SavedFormat::id("l0pw").transpose().round().quantise::<i16>(Q_FT),
+        SavedFormat::id("l0tw").transpose().transform(|_, v| v.iter().map(|x| x.clamp(-0.498, 0.498)).collect()).round().quantise::<i8>(Q_FT),
+        SavedFormat::id("l0pw").transpose().transform(|_, v| v.iter().map(|x| x.clamp(-128.0, 128.0)).collect()).round().quantise::<i16>(Q_FT),
         SavedFormat::id("l0tb").transform(|store, values| {
             let p = store.get("l0pb").values.f32();
-            values.iter().zip(p).map(|(a, b)| a + b).collect()
+            values.iter().zip(p).map(|(a, b)| (a + b).clamp(-128.0, 128.0)).collect()
         }).round().quantise::<i16>(Q_FT),
         SavedFormat::id("l1w").transform(|_store, values| {
             let mut out = vec![0f32; values.len()];
@@ -86,7 +86,7 @@ fn main() {
                     for i in 0..1024usize {
                         let bullet_idx = i * 128 + (b * 16 + o);
                         let engine_idx = b * 16384 + (i / 4) * 64 + o * 4 + (i % 4);
-                        out[engine_idx] = values[bullet_idx];
+                        out[engine_idx] = values[bullet_idx].clamp(-1.984375, 1.984375);
                     }
                 }
             }
@@ -137,9 +137,9 @@ fn main() {
     let schedule = TrainingSchedule {
         steps: TrainingSteps {
             batch_size: 16384,
-            batches_per_superbatch: 1,
+            batches_per_superbatch: 100,
             start_superbatch: 1,
-            end_superbatch: 1,
+            end_superbatch: 800,
         },
         lr_schedule: lr::CosineDecayLR { initial_lr: 0.001, final_lr: 0.00003, final_superbatch: 800 }.boxed(),
         log_rate: 64,
