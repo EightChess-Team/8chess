@@ -407,6 +407,46 @@ h2 {
   line-height: 1;
 }
 
+/* Discord community card */
+.discord-card {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-height: 0;
+  max-width: 640px;
+}
+
+.discord-logo {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  color: #5865F2;
+  transition: color .2s ease;
+}
+
+.discord-logo svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.discord-copy {
+  flex: 1 1 auto;
+}
+
+.discord-copy strong {
+  margin: 10px 0 4px;
+}
+
+.discord-card:hover .discord-logo {
+  color: #4752c4;
+}
+
+@media (max-width: 560px) {
+  .discord-logo { width: 48px; height: 48px; }
+  .discord-card { gap: 16px; }
+}
+
 /* Split / code */
 .split-section {
   max-width: 1180px;
@@ -980,69 +1020,16 @@ footer a {
   }
 }
 
-/* What is 8Chess — data flow */
-.what-is-section { text-align: center; }
-.what-is-heading { max-width: 640px; margin: 0 auto 2rem; }
-.data-flow-container {
-  display: flex; align-items: stretch; justify-content: center;
-  gap: 0.9rem; flex-wrap: wrap;
-}
-.flow-step {
-  width: 190px; display: flex; flex-direction: column;
-  background: var(--card, #fff); border: 1px solid var(--line, #d8d4c9);
-  border-radius: 12px; overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
-}
-.flow-icon-wrapper {
-  height: 78px; display: flex; align-items: center; justify-content: center;
-  gap: 0.5rem; padding: 0.75rem;
-}
-.flow-label {
-  border-top: 1px solid var(--line, #d8d4c9);
-  background: var(--panel, #ebe7dc); color: var(--ink, #14231f);
-  padding: 0.55rem 0.75rem; font-size: 0.82rem; font-weight: 700;
-}
-.flow-arrow {
-  display: flex; align-items: center; justify-content: center;
-  color: var(--muted, #64736d); font-size: 1.3rem;
-}
-.flow-player { color: var(--muted, #64736d); }
-.overlapping-logos { position: relative; }
-.stacked-logo {
-  width: 44px; height: 44px; padding: 5px; object-fit: contain;
-  background: #fff; border: 1px solid var(--line, #d8d4c9);
-  border-radius: 8px; box-shadow: 1px 1px 0 rgba(20, 35, 31, 0.12);
-}
-.logo-left { transform: rotate(-8deg) translateX(7px); z-index: 1; }
-.logo-right { transform: rotate(8deg) translateX(-7px); z-index: 2; }
-.engine-icon-wrapper { gap: 0.55rem; }
-.engine-logo { width: 48px; height: 48px; }
-.flow-badge {
-  text-align: left; font-family: 'DM Mono', 'SF Mono', monospace;
-  font-size: 0.7rem; line-height: 1.45;
-  color: var(--ink, #14231f); background: var(--paper, #f4f1e9);
-  border: 1px solid var(--line, #d8d4c9); border-radius: 6px;
-  padding: 0.3rem 0.45rem;
-}
-.flow-code {
-  margin: 0; text-align: left;
-  font-family: 'DM Mono', 'SF Mono', monospace;
-  font-size: 0.7rem; line-height: 1.45;
-  color: var(--ink, #14231f); background: var(--paper, #f4f1e9);
-  border: 1px solid var(--line, #d8d4c9); border-radius: 6px;
-  padding: 0.35rem 0.5rem;
-}
-@media (max-width: 760px) {
-  .data-flow-container { flex-direction: column; align-items: center; }
-  .flow-arrow { transform: rotate(90deg); }
-}
-
-/* UCI session demo */
-.uci-demo { margin-top: 2.5rem; }
+/* What-is + UCI demo */
+.uci-demo { margin-top: 2rem; }
 .uci-demo-card {
-  background: var(--card, #fff); border: 1px solid var(--line, #d8d4c9);
-  border-radius: 12px; padding: 1.25rem; max-width: 640px; margin: 0 auto;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); text-align: left;
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #ddd);
+  border-radius: 12px;
+  padding: 1.25rem;
+  max-width: 640px;
+  margin: 0 auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
 }
 .uci-demo-head {
   display: flex; align-items: center; gap: 0.6rem;
@@ -1050,10 +1037,24 @@ footer a {
   color: var(--text, #222);
 }
 .uci-demo-code {
-  background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: 8px;
-  overflow-x: auto; font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 0.82rem; line-height: 1.6; margin: 0;
+  background: #1e1e2e; color: #cdd6f4;
+  padding: 1rem; border-radius: 8px; overflow-x: auto;
+  font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem; line-height: 1.6;
+  margin: 0;
 }
 .uci-in { color: #89b4fa; }
 .uci-out { color: #a6e3a1; }
 .uci-demo-note { margin-top: 0.75rem; font-size: 0.85rem; color: var(--muted, #666); }
+
+/* Compat grid */
+.compat-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem; margin-top: 1.5rem;
+}
+.compat-card {
+  background: var(--card, #fff); border: 1px solid var(--border, #ddd);
+  border-radius: 10px; padding: 1rem; text-align: center;
+}
+.compat-icon { font-size: 1.6rem; display: block; margin-bottom: 0.4rem; }
+.compat-card strong { display: block; font-size: 0.95rem; }
+.compat-card small { display: block; font-size: 0.78rem; color: var(--muted, #666); margin-top: 0.2rem; }
