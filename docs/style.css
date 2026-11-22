@@ -407,6 +407,46 @@ h2 {
   line-height: 1;
 }
 
+/* Discord community card */
+.discord-card {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-height: 0;
+  max-width: 640px;
+}
+
+.discord-logo {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  color: #5865F2;
+  transition: color .2s ease;
+}
+
+.discord-logo svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.discord-copy {
+  flex: 1 1 auto;
+}
+
+.discord-copy strong {
+  margin: 10px 0 4px;
+}
+
+.discord-card:hover .discord-logo {
+  color: #4752c4;
+}
+
+@media (max-width: 560px) {
+  .discord-logo { width: 48px; height: 48px; }
+  .discord-card { gap: 16px; }
+}
+
 /* Split / code */
 .split-section {
   max-width: 1180px;
