@@ -408,19 +408,25 @@ h2 {
 }
 
 /* Discord community card */
+.community-strip {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 32px 48px;
+}
+
 .discord-card {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   min-height: 0;
-  max-width: 520px;
-  padding: 13px 46px 13px 16px;
+  max-width: 460px;
+  padding: 10px 40px 10px 14px;
 }
 
 .discord-logo {
   flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   color: #5865F2;
   transition: color .2s ease;
 }
@@ -437,27 +443,27 @@ h2 {
 
 .discord-copy strong {
   display: block;
-  margin: 2px 0;
-  font-size: 15px;
+  margin: 1px 0;
+  font-size: 14px;
 }
 
 .discord-copy small {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+}
+
+.discord-card .platform {
+  font-size: 10px;
 }
 
 .discord-card .arrow {
   top: 50%;
-  right: 16px;
+  right: 14px;
   transform: translateY(-50%);
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .discord-card:hover .discord-logo {
   color: #4752c4;
-}
-
-@media (max-width: 560px) {
-  .discord-logo { width: 32px; height: 32px; }
 }
 
 /* Split / code */
