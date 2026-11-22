@@ -411,15 +411,16 @@ h2 {
 .discord-card {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 14px;
   min-height: 0;
-  max-width: 640px;
+  max-width: 520px;
+  padding: 13px 46px 13px 16px;
 }
 
 .discord-logo {
   flex: 0 0 auto;
-  width: 64px;
-  height: 64px;
+  width: 38px;
+  height: 38px;
   color: #5865F2;
   transition: color .2s ease;
 }
@@ -435,7 +436,20 @@ h2 {
 }
 
 .discord-copy strong {
-  margin: 10px 0 4px;
+  display: block;
+  margin: 2px 0;
+  font-size: 15px;
+}
+
+.discord-copy small {
+  font-size: 0.75rem;
+}
+
+.discord-card .arrow {
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  font-size: 18px;
 }
 
 .discord-card:hover .discord-logo {
@@ -443,8 +457,7 @@ h2 {
 }
 
 @media (max-width: 560px) {
-  .discord-logo { width: 48px; height: 48px; }
-  .discord-card { gap: 16px; }
+  .discord-logo { width: 32px; height: 32px; }
 }
 
 /* Split / code */
