@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f4f1e9">
+  <meta name="description" content="News and updates from the 8Chess project.">
+  <meta property="og:title" content="8Chess — News">
+  <meta property="og:description" content="Latest news, releases, and updates from the 8Chess project.">
+  <title>8Chess — News</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="8Chess home">
+      <img src="logo.svg" alt="" width="34" height="34">
+      <span>8Chess</span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a class="play-pill play-link" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">Play</a>
+      <a href="./">Home</a>
+      <a href="news.html">News</a>
+      <a href="index.html#download">Download</a>
+      <a href="index.html#use">Use it</a>
+      <a class="play-link" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">Donate CPU</a>
+      <a href="https://github.com/EightChess-Team/8chess">Source</a>
+      <a href="https://discord.gg/b3CejCPjZG" target="_blank" rel="noopener">Discord</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero hero-news">
+      <div class="hero-copy">
+        <p class="eyebrow">Latest updates</p>
+        <h1>News &amp;<br><em>releases.</em></h1>
+        <p class="lead">Everything new in the 8Chess project — beta builds, engine updates, and release notes.</p>
+      </div>
+    </section>
+
+    <section class="section news-section">
+      <div class="news-list">
+        <article class="news-card news-card--latest">
+          <div class="news-card-head">
+            <span class="news-tag">Release</span>
+            <span class="news-date">November 2026</span>
+          </div>
+          <h2>8Chess v2 is released</h2>
+          <p>8Chess v2 is out. It ships the engine correction pass (qsearch, SEE, draw score, time management, FT gradient fix), SIMD/PGO optimization (880k nps), Syzygy tablebase support, and the refined NNUE network. Universal binaries are available for Linux, macOS, and Windows — each detects your CPU and uses the best available SIMD automatically. A WebAssembly build is also available for browser play.</p>
+          <p>Match results vs Stockfish 19 are published in the <a href="https://github.com/EightChess-Team/8chess">repository</a>. The <code>v2</code> branch is now the default.</p>
+          <div class="actions">
+            <a class="button primary" href="https://github.com/EightChess-Team/8chess/releases">Download v2</a>
+            <a class="button secondary" href="https://github.com/EightChess-Team/8chess">Source code</a>
+          </div>
+        </article>
+
+        <article class="news-card">
+          <div class="news-card-head">
+            <span class="news-tag">Release</span>
+            <span class="news-date">2026</span>
+          </div>
+          <h2>8Chess 1.0</h2>
+          <p>The first public release. Self-contained Rust chess engine with an embedded 1024-wide NNUE network. No runtime network file required. Available for Linux, macOS, Windows, and Android.</p>
+          <div class="actions">
+            <a class="button secondary" href="https://github.com/EightChess-Team/8chess/releases">Browse releases</a>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section class="community-strip" id="community">
+      <a class="download-card discord-card" href="https://discord.gg/b3CejCPjZG" target="_blank" rel="noopener">
+        <span class="discord-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276c-.598.343-1.2194.6448-1.8722.8923a.076.076 0 00-.0415.1058c.3551.7021.7666 1.3669 1.2279 1.9943a.077.077 0 00.0842.0276c1.9515-.6071 3.9401-1.5223 5.9929-3.0294a.077.077 0 00.0312-.0559c.4984-5.1636-.8349-9.6808-3.5506-13.6811a.0628.0628 0 00-.028-.0281zM8.02 15.2782c-1.1045 0-2.0146-1.013-2.0146-2.257 0-1.244.897-2.257 2.0146-2.257 1.1267 0 2.0247 1.021 2.0146 2.257 0 1.244-.897 2.257-2.0146 2.257zm7.976 0c-1.1045 0-2.0146-1.013-2.0146-2.257 0-1.244.897-2.257 2.0146-2.257 1.1267 0 2.0247 1.021 2.0146 2.257 0 1.244-.8879 2.257-2.0146 2.257z"/></svg>
+        </span>
+        <span class="discord-copy">
+          <span class="platform">Discord</span>
+          <strong>Join our Discord community</strong>
+          <small>discord.gg/b3CejCPjZG · dev updates, help, and match talk</small>
+        </span>
+        <span class="arrow">↗</span>
+      </a>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 8Chess Team · Founded and started by <strong>Hemesh Kasukurthy</strong> ♟ · <a href="https://github.com/EightChess-Team">GitHub org</a> · <a href="https://huggingface.co/EightChess-Team">Hugging Face</a></span>
+    <span><a href="index.html">Home</a> · <a href="https://github.com/EightChess-Team/8chess">Engine</a> · <a href="https://github.com/EightChess-Team/cpuplay">CpuPlay</a> · <a href="https://github.com/EightChess-Team/8chess/blob/main/LICENSE">AGPL-3.0</a></span>
+  </footer>
+</body>
+</html>
