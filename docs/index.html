@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#f4f1e9">
-  <meta name="description" content="8Chess is an open-source chess engine with an embedded NNUE network — play it in your browser, powered by volunteer CPUs.">
+  <meta name="description" content="8Chess is an open-source chess engine with an embedded 1024-wide NNUE network — play it in your browser, powered by volunteer CPUs.">
   <meta property="og:title" content="8Chess — Open-source chess engine">
   <meta property="og:description" content="Small binary. Serious chess. Play the 8Chess engine online, powered by volunteer CPUs.">
   <title>8Chess — Open-source chess engine</title>
@@ -25,6 +25,7 @@
       <a href="#use">Use it</a>
       <a class="play-link" href="https://gsm-modern-arrange-estates.trycloudflare.com/" target="_blank" rel="noopener">Donate CPU</a>
       <a href="https://github.com/EightChess-Team/8chess">Source</a>
+      <a href="https://discord.gg/b3CejCPjZG" target="_blank" rel="noopener">Discord</a>
     </nav>
   </header>
 
@@ -51,56 +52,12 @@
       </div>
     </section>
 
-    <!-- WHAT IS 8CHESS -->
-    <section class="section what-is-section" id="what">
-      <div class="what-is-heading">
-        <p class="eyebrow">The basics</p>
-        <h2>What is 8Chess?</h2>
-        <p>8Chess is a chess engine. It analyzes chess positions, evaluates them, and tries to find the best move. It communicates with chess apps via the UCI protocol.</p>
+    <section class="section" id="what">
+      <div class="section-heading">
+        <p class="eyebrow">What is 8Chess?</p>
+        <h2>A chess engine that speaks UCI.</h2>
+        <p>8Chess is a self-contained chess engine written in Rust. It evaluates positions with a 1024-wide NNUE neural network baked directly into the binary — no network file needed at runtime. It communicates via the <strong>UCI (Universal Chess Interface)</strong> protocol, so any GUI that supports UCI can use it instantly.</p>
       </div>
-
-      <div class="data-flow-container">
-        <div class="flow-step">
-          <div class="flow-icon-wrapper">
-            <svg class="flow-player" viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="8" r="4"/>
-              <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
-            </svg>
-          </div>
-          <div class="flow-label">Player</div>
-        </div>
-
-        <div class="flow-arrow" aria-hidden="true">→</div>
-
-        <div class="flow-step">
-          <div class="flow-icon-wrapper overlapping-logos">
-            <img src="logos/lichess.svg" alt="Lichess" class="stacked-logo logo-left">
-            <img src="logos/en-croissant.webp" alt="En Croissant" class="stacked-logo logo-right">
-          </div>
-          <div class="flow-label">Chess GUI</div>
-        </div>
-
-        <div class="flow-arrow" aria-hidden="true">→</div>
-
-        <div class="flow-step">
-          <div class="flow-icon-wrapper">
-            <pre class="flow-code"><code>position startpos
-go depth 20</code></pre>
-          </div>
-          <div class="flow-label">UCI Protocol</div>
-        </div>
-
-        <div class="flow-arrow" aria-hidden="true">→</div>
-
-        <div class="flow-step">
-          <div class="flow-icon-wrapper engine-icon-wrapper">
-            <img src="logo.svg" alt="8Chess" class="engine-logo">
-            <span class="flow-badge">Eval: +0.34<br>Best Move: Nf3</span>
-          </div>
-          <div class="flow-label">8Chess</div>
-        </div>
-      </div>
-
       <div class="uci-demo">
         <div class="uci-demo-card">
           <div class="uci-demo-head">
@@ -120,6 +77,46 @@ option name EvalFile type string default &lt;internal&gt;
 <span class="uci-in">&gt; evalnum</span>
 <span class="uci-out">info string eval: +0.34 (centipawns, side to move)</span></code></pre>
           <p class="uci-demo-note">The engine reports its <strong>evaluation</strong> (in centipawns) and <strong>best move</strong> (in UCI notation). Any GUI reads these and displays them to you.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="compat">
+      <div class="section-heading">
+        <p class="eyebrow">Works everywhere</p>
+        <h2>Plug into any chess GUI.</h2>
+        <p>Because 8Chess speaks UCI, it works out of the box with every major chess interface. No plugins, no adapters.</p>
+      </div>
+      <div class="compat-grid">
+        <div class="compat-card">
+          <span class="compat-icon">♟</span>
+          <strong>Arena</strong>
+          <small>Windows · Linux</small>
+        </div>
+        <div class="compat-card">
+          <span class="compat-icon">♞</span>
+          <strong>ChessBase / Fritz</strong>
+          <small>Windows</small>
+        </div>
+        <div class="compat-card">
+          <span class="compat-icon">♝</span>
+          <strong>Lichess (analysis board)</strong>
+          <small>Browser · UCI via local engine</small>
+        </div>
+        <div class="compat-card">
+          <span class="compat-icon">♛</span>
+          <strong>Cute Chess</strong>
+          <small>Windows · macOS · Linux</small>
+        </div>
+        <div class="compat-card">
+          <span class="compat-icon">♚</span>
+          <strong>Lucas Chess</strong>
+          <small>Windows · Linux</small>
+        </div>
+        <div class="compat-card">
+          <span class="compat-icon">♜</span>
+          <strong>Any UCI GUI</strong>
+          <small>If it speaks UCI, it works</small>
         </div>
       </div>
     </section>
@@ -202,11 +199,30 @@ readyok</code></pre>
       <p>8Chess is open source under AGPL-3.0. Read the code, build it yourself, run your own matches.</p>
       <a class="button secondary" href="https://github.com/EightChess-Team/8chess">View source <span>→</span></a>
     </section>
+
+    <section class="section" id="community">
+      <div class="section-heading">
+        <p class="eyebrow">Community</p>
+        <h2>Join our Discord community.</h2>
+        <p>Talk with the team and other chess engine fans — ask questions, share games, and follow development.</p>
+      </div>
+      <a class="download-card discord-card" href="https://discord.gg/b3CejCPjZG" target="_blank" rel="noopener">
+        <span class="discord-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276c-.598.343-1.2194.6448-1.8722.8923a.076.076 0 00-.0415.1058c.3551.7021.7666 1.3669 1.2279 1.9943a.077.077 0 00.0842.0276c1.9515-.6071 3.9401-1.5223 5.9929-3.0294a.077.077 0 00.0312-.0559c.4984-5.1636-.8349-9.6808-3.5506-13.6811a.0628.0628 0 00-.028-.0281zM8.02 15.2782c-1.1045 0-2.0146-1.013-2.0146-2.257 0-1.244.897-2.257 2.0146-2.257 1.1267 0 2.0247 1.021 2.0146 2.257 0 1.244-.897 2.257-2.0146 2.257zm7.976 0c-1.1045 0-2.0146-1.013-2.0146-2.257 0-1.244.897-2.257 2.0146-2.257 1.1267 0 2.0247 1.021 2.0146 2.257 0 1.244-.8879 2.257-2.0146 2.257z"/></svg>
+        </span>
+        <span class="discord-copy">
+          <span class="platform">Discord</span>
+          <strong>Join our Discord community</strong>
+          <small>discord.gg/b3CejCPjZG · dev updates, help, and match talk</small>
+        </span>
+        <span class="arrow">↗</span>
+      </a>
+    </section>
   </main>
 
   <footer>
     <span>© 2026 8Chess Team · Founded and started by <strong>Hemesh Kasukurthy</strong> ♟ · <a href="https://github.com/EightChess-Team">GitHub org</a> · <a href="https://huggingface.co/EightChess-Team">Hugging Face</a></span>
-    <span><a href="index.html">Home</a> · <a href="https://github.com/EightChess-Team/8chess">Engine</a> · <a href="https://github.com/EightChess-Team/cpuplay">CpuPlay</a> · <a href="https://github.com/EightChess-Team/8chess/blob/main/LICENSE">AGPL-3.0</a></span>
+    <span><a href="https://github.com/EightChess-Team/8chess">Engine</a> · <a href="https://github.com/EightChess-Team/cpuplay">CpuPlay</a> · <a href="https://github.com/EightChess-Team/8chess/blob/main/LICENSE">AGPL-3.0</a></span>
   </footer>
 
   <script>
